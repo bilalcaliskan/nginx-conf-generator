@@ -22,6 +22,8 @@ func main() {
 	// single worker node ip address for each cluster. order of ip addresses must be same with kubeConfigPaths[]
 	workerNodeIps := flag.String("workerNodeIps", "192.168.0.201", "comma seperated ip " +
 		"address of the worker nodes to reach the services over NodePort")
+	templateInputFile := flag.String("templateInputFile", "/opt/resources/default.conf.tmpl", "input " +
+		"path of the template file")
 	templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
 		"path of the template file")
 	flag.Parse()
@@ -42,13 +44,13 @@ func main() {
 		}
 		nginxConf.Backends = append(nginxConf.Backends, backend)
 
-		go func(customAnnotation, templateOutputFile string, backend Backend, clientSet *kubernetes.Clientset) {
-			runScheduledJob(customAnnotation, templateOutputFile, backend, clientSet)
+		go func(customAnnotation, templateInputFile, templateOutputFile string, backend Backend, clientSet *kubernetes.Clientset) {
+			runScheduledJob(customAnnotation, templateInputFile, templateOutputFile, backend, clientSet)
 			ticker := time.NewTicker(time.Duration(int32(*tickerIntervalSeconds)) * time.Second)
 			for range ticker.C {
-				runScheduledJob(customAnnotation, templateOutputFile, backend, clientSet)
+				runScheduledJob(customAnnotation, templateInputFile, templateOutputFile, backend, clientSet)
 			}
-		}(*customAnnotation, *templateOutputFile, backend, clientSet)
+		}(*customAnnotation, *templateInputFile, *templateOutputFile, backend, clientSet)
 	}
 
 	log.Printf("nginxConf.Backends = %v\n", nginxConf.Backends)

@@ -10,7 +10,7 @@ import (
 	_ "time"
 )
 
-func runScheduledJob(customAnnotation, templateOutputFile string, backend Backend, clientSet *kubernetes.Clientset) {
+func runScheduledJob(customAnnotation, templateInputFile, templateOutputFile string, backend Backend, clientSet *kubernetes.Clientset) {
 	var targetPorts []int32
 	nginxConfPointer := &nginxConf
 	targetNamespaces, err := getNamespaces(clientSet)
@@ -46,7 +46,7 @@ func runScheduledJob(customAnnotation, templateOutputFile string, backend Backen
 
 
 
-		tpl := template.Must(template.ParseFiles("resources/default.conf"))
+		tpl := template.Must(template.ParseFiles(templateInputFile))
 		f, err := os.Create(templateOutputFile)
 		checkError(err)
 
