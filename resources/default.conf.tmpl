@@ -1,6 +1,6 @@
 {{range .Backends}}
 upstream {{.Name}} {
-    server {{.IP}};
+    server {{.IP}}:{{.Port}};
 }
 {{end}}
 
@@ -8,7 +8,9 @@ upstream {{.Name}} {
 server {
     listen {{.Port}};
     server_name _;
-    proxy_pass http://{{.Backend.Name}}:{{.Port}};
+    location / {
+        proxy_pass http://{{.Backend.Name}};
+    }
 }
 {{end}}
 

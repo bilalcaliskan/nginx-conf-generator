@@ -36,7 +36,7 @@ func checkError(err error) {
 
 // findItem takes a slice and looks for an element in it. If found it will
 // return it's key, otherwise it will return -1 and a bool of false.
-func findItem(vservers []VServer, vserver VServer) (int, bool) {
+func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	for i, item := range vservers {
 		if item == vserver {
 			return i, true
@@ -45,8 +45,17 @@ func findItem(vservers []VServer, vserver VServer) (int, bool) {
 	return -1, false
 }
 
+func findBackend(backends []Backend, backend Backend) (int, bool) {
+	for i, item := range backends {
+		if item == backend {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 func reloadNginx() error {
-	cmd := exec.Command("systemctl reload nginx")
+	cmd := exec.Command("nginx", "-s", "reload")
 	err := cmd.Run()
 	if err != nil {
 		return err

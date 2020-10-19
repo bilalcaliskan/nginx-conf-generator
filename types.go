@@ -2,7 +2,7 @@ package main
 
 type Backend struct {
 	Name, IP string
-	Index int
+	Port int32
 }
 
 type VServer struct {
