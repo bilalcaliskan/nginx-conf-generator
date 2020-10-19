@@ -5,6 +5,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
+	"os/exec"
 )
 
 func getConfig(kubeConfigPath string) (*rest.Config, error) {
@@ -42,4 +43,13 @@ func findItem(vservers []VServer, vserver VServer) (int, bool) {
 		}
 	}
 	return -1, false
+}
+
+func reloadNginx() error {
+	cmd := exec.Command("systemctl reload nginx")
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+	return nil
 }

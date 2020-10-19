@@ -56,6 +56,9 @@ func runScheduledJob(customAnnotation, templateOutputFile string, backend Backen
 
 		err = f.Close()
 		checkError(err)
+
+		err = reloadNginx()
+		checkError(err)
 	}
 }
 
