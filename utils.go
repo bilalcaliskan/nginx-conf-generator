@@ -32,3 +32,14 @@ func checkError(err error) {
 		log.Fatalln(err.Error())
 	}
 }
+
+// findItem takes a slice and looks for an element in it. If found it will
+// return it's key, otherwise it will return -1 and a bool of false.
+func findItem(vservers []VServer, vserver VServer) (int, bool) {
+	for i, item := range vservers {
+		if item == vserver {
+			return i, true
+		}
+	}
+	return -1, false
+}

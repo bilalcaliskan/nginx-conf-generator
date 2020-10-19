@@ -2,6 +2,7 @@ package main
 
 type Backend struct {
 	Name, IP string
+	Index int
 }
 
 type VServer struct {
@@ -11,6 +12,5 @@ type VServer struct {
 
 type NginxConf struct {
 	VServers []VServer
-	//Backends []Backend
-	Backend Backend
+	Backends []Backend
 }
