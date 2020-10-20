@@ -1,15 +1,34 @@
-# Authenticating inside the cluster
+## Introduction
 
-client-go uses the [Service Account token][sa] mounted inside the Pod at the
-`/var/run/secrets/kubernetes.io/serviceaccount` path when the
-`rest.InClusterConfig()` is used.
-
-If you have RBAC enabled on your cluster, use the following
-snippet to create the service account first, then create a role binding which 
-will grant the previously created service account view
-permissions. Finally use that serviceaccount in your deployment or deploymentconfig(Openshift).
-
+That tool uses `client-go` to communicate with multi Kubernetes clusters and picks the NodePort port 
+of services which is a NodePort type service and contains specific annotation. Default annotation can 
+be changed with above command line flag:
 ```
-kubectl create serviceaccount ${YOUR_SERVICE_ACCOUNT_NAME}
-kubectl create clusterrolebinding ${YOUR_SERVICE_ACCOUNT_NAME} --clusterrole=view --serviceaccount=${YOUR_NAMESPACE}:${YOUR_SERVICE_ACCOUNT_NAME}
+customAnnotation := flag.String("customAnnotation", "hayde.trendyol.io/enabled", "annotation to specify " +
+		"selectable services")
 ```
+
+That tool should be run on an Ubuntu host and the user who runs the binary file nginx-conf-generator 
+should have permissions to edit below file and reload nginx service:
+```
+templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
+		"path of the template file")
+```
+
+Tool uses the kubeconfig file for authentication and authorization with Kubernetes cluster. You should consider 
+create only required role and rolebinding for the tool.
+
+Then modifies the `templateOutputFile(defaults to /etc/nginx/sites-enabled/default)` and reloads the Nginx process.
+
+### Single cluster
+Below flags are the keys to communicate with cluster:
+```
+kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
+		"comma seperated list of kubeconfig file paths to access with the cluster")
+// single worker node ip address for each cluster. order of ip addresses must be same with kubeConfigPaths[]
+workerNodeIps := flag.String("workerNodeIps", "192.168.0.201", "comma seperated ip " +
+		"address of the worker nodes to reach the services over NodePort")
+```
+
+### Multi cluster
+Provide a comma seperated list of arguments to the flag `-kubeConfigPaths` and `workerNodeIps` with the same order.
