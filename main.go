@@ -15,9 +15,11 @@ func main() {
 		"comma seperated list of kubeconfig file paths to access with the cluster")
 	customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
-	// single worker node ip address for each cluster. order of ip addresses must be same with kubeConfigPaths[]
+
+	// TODO: Get the worker node ips from kube-apiserver, not from the command line
 	workerNodeIps := flag.String("workerNodeIps", "192.168.99.101", "comma seperated ip " +
 		"address of the worker nodes to reach the services over NodePort")
+
 	templateInputFile := flag.String("templateInputFile", "/opt/resources/default.conf.tmpl", "input " +
 		"path of the template file")
 	templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
