@@ -15,7 +15,7 @@ import (
 
 func runInformer(customAnnotation, templateInputFile, templateOutputFile, workerNodeIpAddr string, clientSet *kubernetes.Clientset) {
 	var nodeportServices []K8sService
-	// nginxConfPointer := &nginxConf
+	nginxConfPointer := &nginxConf
 
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
@@ -35,6 +35,28 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 				} else {
 					log.Printf("service %v found in the nodeportServices slice, skipping appending...\n", service)
 				}
+
+				backend := Backend{
+					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, service.NodePort),
+					IP: workerNodeIpAddr,
+					Port: service.NodePort,
+					K8sService: service,
+				}
+				_, found = findBackend(nginxConfPointer.Backends, backend)
+				if !found {
+					nginxConfPointer.Backends = append(nginxConfPointer.Backends, backend)
+				}
+
+				vserver := VServer{
+					Port:    service.NodePort,
+					Backend: backend,
+				}
+				_, found = findVserver(nginxConfPointer.VServers, vserver)
+				if !found {
+					nginxConfPointer.VServers = append(nginxConfPointer.VServers, vserver)
+				}
+
+				// TODO: Implement rest
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -57,6 +79,9 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 					oldService.Name, oldService.Namespace, oldService, newService)
 
 				nodeportServices = updateNodeportServices(nodeportServices, oldService, newService)
+
+
+				// TODO: Implement rest
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -76,6 +101,9 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 				} else {
 					log.Printf("service %v not found in the nodeportServices slice, skipping deletion...\n", service)
 				}
+
+
+				// TODO: Implement rest
 			}
 		},
 	})
@@ -133,7 +161,6 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 	}*/
 }
 
-// Sync nginxConfPointer.VServers with targetPorts
 // TODO: Fix possible concurrency problem here
 func sync(targetPorts []int32, workerNodeIpAddr string) {
 	var tmpVservers []VServer

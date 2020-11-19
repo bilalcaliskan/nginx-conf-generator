@@ -72,15 +72,6 @@ func reloadNginx() error {
 	return nil
 }
 
-func indexOf(element interface{}, data []interface{}) int {
-	for k, v := range data {
-		if element == v {
-			return k
-		}
-	}
-	return -1
-}
-
 func removeFromNodeportServices(slice []K8sService, index int) []K8sService {
 	return append(slice[:index], slice[index+1:]...)
 }
