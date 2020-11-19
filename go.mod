@@ -10,6 +10,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect

@@ -45,6 +45,15 @@ func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	return -1, false
 }
 
+func findK8sService(targetServices []K8sService, service K8sService) (int, bool) {
+	for i, item := range targetServices {
+		if item == service {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
 func findBackend(backends []Backend, backend Backend) (int, bool) {
 	for i, item := range backends {
 		if item == backend {
@@ -61,4 +70,39 @@ func reloadNginx() error {
 		return err
 	}
 	return nil
+}
+
+func indexOf(element interface{}, data []interface{}) int {
+	for k, v := range data {
+		if element == v {
+			return k
+		}
+	}
+	return -1
+}
+
+func removeFromNodeportServices(slice []K8sService, index int) []K8sService {
+	return append(slice[:index], slice[index+1:]...)
+}
+
+func updateNodeportServices(slice []K8sService, oldService K8sService, newService K8sService) []K8sService {
+	oldIndex, oldFound := findK8sService(slice, oldService)
+	if oldFound {
+		log.Printf("update operation is starting on the nodeportServices slice %v\n", slice)
+		log.Printf("removing service %v from nodeportServices slice!\n", oldService)
+		slice = removeFromNodeportServices(slice, oldIndex)
+		_, newFound := findK8sService(slice, newService)
+		if !newFound {
+			log.Printf("adding service %v to targetServices slice!\n", newService)
+			slice = append(slice, newService)
+		} else {
+			log.Printf("new service %v already found in the targetServices slice, skipping insertion...\n", newService)
+		}
+	} else {
+		log.Printf("old service %v not found in the targetServices slice, skipping insertion, instead adding the new one %v...\n",
+			oldService, newService)
+		slice = append(slice, newService)
+	}
+	log.Printf("final nodeportServices slice after update operation = %v\n", slice)
+	return slice
 }

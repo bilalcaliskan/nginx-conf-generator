@@ -4,7 +4,7 @@ That tool uses `client-go` to communicate with multi Kubernetes clusters and pic
 of services which is a NodePort type service and contains specific annotation. Default annotation can 
 be changed with above command line flag:
 ```
-customAnnotation := flag.String("customAnnotation", "hayde.trendyol.io/enabled", "annotation to specify " +
+customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
 ```
 
