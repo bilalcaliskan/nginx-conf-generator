@@ -20,7 +20,7 @@ func main() {
 	workerNodeIps := flag.String("workerNodeIps", "192.168.99.101", "comma seperated ip " +
 		"address of the worker nodes to reach the services over NodePort")
 
-	templateInputFile := flag.String("templateInputFile", "/opt/resources/default.conf.tmpl", "input " +
+	templateInputFile := flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
 		"path of the template file")
 	templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
 		"path of the template file")
@@ -33,6 +33,13 @@ func main() {
 		restConfig, err := getConfig(kubeConfigPathArr[index])
 		checkError(err)
 		clientSet, err := getClientSet(restConfig)
+		/*workerNodes, err := clientSet.CoreV1().Nodes().List(v1.ListOptions{
+			LabelSelector: "node-role.kubernetes.io/worker=",
+		})
+		for i, v := range workerNodes.Items {
+			println(i)
+			println(v.Status.Addresses[0].Address)
+		}*/
 		checkError(err)
 		runInformer(*customAnnotation, *templateInputFile, *templateOutputFile, ip, clientSet)
 	}

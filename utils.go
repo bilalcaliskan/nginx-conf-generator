@@ -72,28 +72,56 @@ func reloadNginx() error {
 	return nil
 }
 
-func removeFromNodeportServices(slice []K8sService, index int) []K8sService {
+func removeFromBackendsSlice(slice []Backend, index int) []Backend {
 	return append(slice[:index], slice[index+1:]...)
 }
 
-func updateNodeportServices(slice []K8sService, oldService K8sService, newService K8sService) []K8sService {
-	oldIndex, oldFound := findK8sService(slice, oldService)
+func updateBackendsSlice(slice []Backend, oldBackend Backend, newBackend Backend) []Backend {
+	oldIndex, oldFound := findBackend(slice, oldBackend)
 	if oldFound {
-		log.Printf("update operation is starting on the nodeportServices slice %v\n", slice)
-		log.Printf("removing service %v from nodeportServices slice!\n", oldService)
-		slice = removeFromNodeportServices(slice, oldIndex)
-		_, newFound := findK8sService(slice, newService)
+		log.Printf("update operation is starting on the nginxConfPointer.Backends slice %v\n", slice)
+		log.Printf("removing backend %v from nginxConfPointer.Backends slice!\n", oldBackend)
+		slice = removeFromBackendsSlice(slice, oldIndex)
+
+		_, newFound := findBackend(slice, newBackend)
 		if !newFound {
-			log.Printf("adding service %v to targetServices slice!\n", newService)
-			slice = append(slice, newService)
+			log.Printf("adding backend %v to nginxConfPointer.Backends slice!\n", newBackend)
+			slice = append(slice, newBackend)
 		} else {
-			log.Printf("new service %v already found in the targetServices slice, skipping insertion...\n", newService)
+			log.Printf("new backend %v already found in the nginxConfPointer.Backends slice, skipping insertion...\n", newBackend)
 		}
 	} else {
-		log.Printf("old service %v not found in the targetServices slice, skipping insertion, instead adding the new one %v...\n",
-			oldService, newService)
-		slice = append(slice, newService)
+		log.Printf("old backend %v not found in the nginxConfPointer.Backends slice, skipping insertion, instead adding the new one %v...\n",
+			oldBackend, newBackend)
+		slice = append(slice, newBackend)
 	}
-	log.Printf("final nodeportServices slice after update operation = %v\n", slice)
+	log.Printf("final nginxConfPointer.Backends slice after update operation = %v\n", slice)
+	return slice
+}
+
+func removeFromVserversSlice(slice []VServer, index int) []VServer {
+	return append(slice[:index], slice[index+1:]...)
+}
+
+func updateVserversSlice(slice []VServer, oldVserver VServer, newVserver VServer) []VServer {
+	oldIndex, oldFound := findVserver(slice, oldVserver)
+	if oldFound {
+		log.Printf("update operation is starting on the nginxConfPointer.Vservers slice %v\n", slice)
+		log.Printf("removing vserver %v from nginxConfPointer.Vservers slice!\n", oldVserver)
+		slice = removeFromVserversSlice(slice, oldIndex)
+
+		_, newFound := findVserver(slice, newVserver)
+		if !newFound {
+			log.Printf("adding vserver %v to nginxConfPointer.Vservers slice!\n", newVserver)
+			slice = append(slice, newVserver)
+		} else {
+			log.Printf("new vserver %v already found in the nginxConfPointer.Vservers slice, skipping insertion...\n", newVserver)
+		}
+	} else {
+		log.Printf("old vserver %v not found in the nginxConfPointer.Vservers slice, skipping insertion, instead adding the new one %v...\n",
+			oldVserver, newVserver)
+		slice = append(slice, newVserver)
+	}
+	log.Printf("final nginxConfPointer.Vservers slice after update operation = %v\n", slice)
 	return slice
 }

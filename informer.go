@@ -2,53 +2,45 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"log"
+	"os"
 	"time"
 	_ "time"
 )
 
 func runInformer(customAnnotation, templateInputFile, templateOutputFile, workerNodeIpAddr string, clientSet *kubernetes.Clientset) {
-	var nodeportServices []K8sService
 	nginxConfPointer := &nginxConf
-
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			if obj.(*v1.Service).Spec.Type == "NodePort" {
-				service := K8sService{
-					Namespace: obj.(*v1.Service).Namespace,
-					Name: obj.(*v1.Service).Name,
-					NodePort: obj.(*v1.Service).Spec.Ports[0].NodePort,
-					Type: obj.(*v1.Service).Spec.Type,
-				}
-				_, found := findK8sService(nodeportServices, service)
-				if !found {
-					log.Printf("service %v not found in the nodeportServices slice, appending...\n", service)
-					nodeportServices = append(nodeportServices, service)
-				} else {
-					log.Printf("service %v found in the nodeportServices slice, skipping appending...\n", service)
-				}
+			service := obj.(*v1.Service)
+			_, ok := service.Annotations[customAnnotation]
+			if service.Spec.Type == "NodePort" && ok {
+				nodePort := service.Spec.Ports[0].NodePort
+				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
+					nodePort)
 
+				// Create backend struct
 				backend := Backend{
-					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, service.NodePort),
+					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, nodePort),
 					IP: workerNodeIpAddr,
-					Port: service.NodePort,
-					K8sService: service,
+					Port: nodePort,
 				}
-				_, found = findBackend(nginxConfPointer.Backends, backend)
+				_, found := findBackend(nginxConfPointer.Backends, backend)
 				if !found {
 					nginxConfPointer.Backends = append(nginxConfPointer.Backends, backend)
 				}
 
+				// Create vserver struct with nested Backend
 				vserver := VServer{
-					Port:    service.NodePort,
+					Port:    backend.Port,
 					Backend: backend,
 				}
 				_, found = findVserver(nginxConfPointer.VServers, vserver)
@@ -56,165 +48,133 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 					nginxConfPointer.VServers = append(nginxConfPointer.VServers, vserver)
 				}
 
-				// TODO: Implement rest
+
+				// Apply changes to the template
+				tpl := template.Must(template.ParseFiles(templateInputFile))
+				f, err := os.Create(templateOutputFile)
+				checkError(err)
+
+				err = tpl.Execute(f, &nginxConfPointer)
+				checkError(err)
+
+				err = f.Close()
+				checkError(err)
+
+				/*err = reloadNginx()
+				checkError(err)*/
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			if oldObj.(*v1.Service).Spec.Type == "NodePort" && oldObj.(*v1.Service).ResourceVersion != newObj.(*v1.Service).ResourceVersion {
-				oldService := K8sService{
-					Namespace: oldObj.(*v1.Service).Namespace,
-					Name: oldObj.(*v1.Service).Name,
-					NodePort: oldObj.(*v1.Service).Spec.Ports[0].NodePort,
-					Type: oldObj.(*v1.Service).Spec.Type,
+			oldService := oldObj.(*v1.Service)
+			newService := newObj.(*v1.Service)
+			// TODO: Handle the case that annotation is removed from the new service
+			if oldService.Spec.Type == "NodePort" && oldService.ResourceVersion != newService.ResourceVersion {
+				oldNodePort := oldService.Spec.Ports[0].NodePort
+				newNodePort := newService.Spec.Ports[0].NodePort
+				log.Printf("there is an update on the nodePort of the service %v on namespace %v!\n",
+					oldService.Name, oldService.Namespace)
+
+				// Creating Backend and Vserver structs
+				oldBackend := Backend{
+					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, oldNodePort),
+					IP: workerNodeIpAddr,
+					Port: oldNodePort,
 				}
 
-				newService := K8sService{
-					Namespace: newObj.(*v1.Service).Namespace,
-					Name: newObj.(*v1.Service).Name,
-					NodePort: newObj.(*v1.Service).Spec.Ports[0].NodePort,
-					Type: newObj.(*v1.Service).Spec.Type,
+				newBackend := Backend{
+					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, newNodePort),
+					IP: workerNodeIpAddr,
+					Port: newNodePort,
 				}
 
-				log.Printf("there is an update on the nodePort of the service %v on namespace %v!\nold service = %v\nnew service = %v\n",
-					oldService.Name, oldService.Namespace, oldService, newService)
+				oldVserver := VServer{
+					Port:    oldBackend.Port,
+					Backend: oldBackend,
+				}
 
-				nodeportServices = updateNodeportServices(nodeportServices, oldService, newService)
+				newVserver := VServer{
+					Port:    newBackend.Port,
+					Backend: newBackend,
+				}
 
+				// Appending to the slices if annotation is found, removing if not found
+				_, ok := newService.Annotations[customAnnotation]
+				if ok {
+					nginxConfPointer.Backends = updateBackendsSlice(nginxConfPointer.Backends, oldBackend, newBackend)
+					nginxConfPointer.VServers = updateVserversSlice(nginxConfPointer.VServers, oldVserver, newVserver)
+				} else {
+					oldIndex, oldFound := findBackend(nginxConfPointer.Backends, oldBackend)
+					if oldFound {
+						nginxConfPointer.Backends = removeFromBackendsSlice(nginxConfPointer.Backends, oldIndex)
+						nginxConfPointer.VServers = removeFromVserversSlice(nginxConfPointer.VServers, oldIndex)
+					}
 
-				// TODO: Implement rest
+					newIndex, newFound := findBackend(nginxConfPointer.Backends, newBackend)
+					if newFound {
+						nginxConfPointer.Backends = removeFromBackendsSlice(nginxConfPointer.Backends, newIndex)
+						nginxConfPointer.VServers = removeFromVserversSlice(nginxConfPointer.VServers, newIndex)
+					}
+				}
+
+				// Apply changes to the template
+				tpl := template.Must(template.ParseFiles(templateInputFile))
+				f, err := os.Create(templateOutputFile)
+				checkError(err)
+
+				err = tpl.Execute(f, &nginxConfPointer)
+				checkError(err)
+
+				err = f.Close()
+				checkError(err)
+
+				/*err = reloadNginx()
+				checkError(err)*/
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-			if obj.(*v1.Service).Spec.Type == "NodePort" {
-				service := K8sService{
-					Namespace: obj.(*v1.Service).Namespace,
-					Name: obj.(*v1.Service).Name,
-					NodePort: obj.(*v1.Service).Spec.Ports[0].NodePort,
-					Type: obj.(*v1.Service).Spec.Type,
-				}
+			service := obj.(*v1.Service)
+			_, ok := service.Annotations[customAnnotation]
+			if service.Spec.Type == "NodePort" && ok {
+				nodePort := service.Spec.Ports[0].NodePort
+				log.Printf("service %v is deleted on namespace %v!\n", service.Name, service.Namespace)
 
-				i, found := findK8sService(nodeportServices, service)
+				// Create backend struct with nested K8sService
+				backend := Backend{
+					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, nodePort),
+					IP: workerNodeIpAddr,
+					Port: nodePort,
+				}
+				index, found := findBackend(nginxConfPointer.Backends, backend)
 				if found {
-					log.Printf("service %v found in the nodeportServices slice, deleting it from slice...\n", service)
-					nodeportServices = removeFromNodeportServices(nodeportServices, i)
-					log.Printf("targetServices slice after deletion = %v\n", nodeportServices)
-				} else {
-					log.Printf("service %v not found in the nodeportServices slice, skipping deletion...\n", service)
+					nginxConfPointer.Backends = removeFromBackendsSlice(nginxConfPointer.Backends, index)
 				}
 
+				// Create vserver struct with nested Backend
+				vserver := VServer{
+					Port:    nodePort,
+					Backend: backend,
+				}
+				index, found = findVserver(nginxConfPointer.VServers, vserver)
+				if found {
+					nginxConfPointer.VServers = removeFromVserversSlice(nginxConfPointer.VServers, index)
+				}
 
-				// TODO: Implement rest
+				// Apply changes to the template
+				tpl := template.Must(template.ParseFiles(templateInputFile))
+				f, err := os.Create(templateOutputFile)
+				checkError(err)
+
+				err = tpl.Execute(f, &nginxConfPointer)
+				checkError(err)
+
+				err = f.Close()
+				checkError(err)
+
+				/*err = reloadNginx()
+				checkError(err)*/
 			}
 		},
 	})
 	informerFactory.Start(wait.NeverStop)
 	informerFactory.WaitForCacheSync(wait.NeverStop)
-
-	/*targetNamespaces, err := getNamespaces(clientSet)
-	if err != nil {
-		log.Printf("an error occured while fetching the namespaces from the kube-apiserver, aborting scheduled execution!")
-	} else {
-		for _, ns := range targetNamespaces {
-			services, err := getServices(ns.Name, clientSet)
-			if err != nil {
-				log.Printf("an error occured while fetching the services from the kube-apiserver, skipping namespace %s\n", ns.Name)
-			} else {
-				for _, svc := range services {
-					if svc.Spec.Type == "NodePort" && svc.Annotations[customAnnotation] == "true" {
-						targetPorts = append(targetPorts, svc.Spec.Ports[0].NodePort)
-						backend := Backend{
-							Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, svc.Spec.Ports[0].NodePort),
-							IP: workerNodeIpAddr,
-							Port: svc.Spec.Ports[0].NodePort,
-						}
-						_, found := findBackend(nginxConfPointer.Backends, backend)
-						if !found {
-							nginxConfPointer.Backends = append(nginxConfPointer.Backends, backend)
-						}
-
-						vserver := VServer{
-							Port:    svc.Spec.Ports[0].NodePort,
-							Backend: backend,
-						}
-						_, found = findVserver(nginxConfPointer.VServers, vserver)
-						if !found {
-							nginxConfPointer.VServers = append(nginxConfPointer.VServers, vserver)
-						}
-					}
-				}
-			}
-		}
-
-		tpl := template.Must(template.ParseFiles(templateInputFile))
-		f, err := os.Create(templateOutputFile)
-		checkError(err)
-
-		sync(targetPorts, workerNodeIpAddr)
-		err = tpl.Execute(f, &nginxConfPointer)
-		checkError(err)
-
-		err = f.Close()
-		checkError(err)
-
-		err = reloadNginx()
-		checkError(err)
-	}*/
-}
-
-// TODO: Fix possible concurrency problem here
-func sync(targetPorts []int32, workerNodeIpAddr string) {
-	var tmpVservers []VServer
-	var tmpBackends []Backend
-	nginxConfPointer := &nginxConf
-	for _, v := range targetPorts {
-		backend := Backend{
-			Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, v),
-			IP: workerNodeIpAddr,
-			Port: v,
-		}
-
-		vserver := VServer{
-			Port:    v,
-			Backend: backend,
-		}
-
-		tmpBackends = append(tmpBackends, backend)
-		tmpVservers = append(tmpVservers, vserver)
-	}
-
-	for i, v := range nginxConfPointer.Backends {
-		if v.IP == workerNodeIpAddr {
-			_, found := findBackend(tmpBackends, v)
-			if !found {
-				nginxConfPointer.Backends[i] = nginxConfPointer.Backends[len(nginxConfPointer.Backends) - 1]
-				nginxConfPointer.Backends = nginxConfPointer.Backends[:len(nginxConfPointer.Backends) - 1]
-			}
-		}
-	}
-
-	for i, v := range nginxConfPointer.VServers {
-		if v.Backend.IP == workerNodeIpAddr {
-			_, found := findVserver(tmpVservers, v)
-			if !found {
-				nginxConfPointer.VServers[i] = nginxConfPointer.VServers[len(nginxConfPointer.VServers) - 1]
-				nginxConfPointer.VServers = nginxConfPointer.VServers[:len(nginxConfPointer.VServers) - 1]
-			}
-		}
-	}
-}
-
-func getNamespaces(clientSet *kubernetes.Clientset) ([]v1.Namespace, error) {
-	namespaces, err := clientSet.CoreV1().Namespaces().List(metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return namespaces.Items, nil
-}
-
-func getServices(namespace string, clientSet *kubernetes.Clientset) ([]v1.Service, error) {
-	services, err := clientSet.CoreV1().Services(namespace).List(metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return services.Items, nil
 }
