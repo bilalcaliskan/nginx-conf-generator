@@ -1,11 +1,43 @@
 package main
 
-import v1 "k8s.io/api/core/v1"
+import "sort"
+
+type Worker struct {
+	Index int
+	IP string
+	Port int32
+}
 
 type Backend struct {
 	Name, IP string
 	Port int32
-	K8sService
+	Workers []Worker
+}
+
+func (backend *Backend) Equals(other *Backend) bool {
+	isNameEquals := backend.Name == other.Name
+	isIpEquals := backend.IP == other.IP
+	isPortEquals := backend.Port == other.Port
+	isWorkersEqual := len(backend.Workers) == len(other.Workers)
+	if isWorkersEqual {  // copy slices so sorting won't affect original structs
+		backendWorkers := make([]Worker, len(backend.Workers))
+		otherWorkers := make([]Worker, len(other.Workers))
+		copy(backend.Workers, backendWorkers)
+		copy(other.Workers, otherWorkers)
+		// Sort by index, keeping original order or equal elements.
+		sort.SliceStable(backendWorkers, func(i, j int) bool {
+			return backendWorkers[i].Index < backendWorkers[j].Index
+		})
+		sort.SliceStable(otherWorkers, func(i, j int) bool {
+			return otherWorkers[i].Index < otherWorkers[j].Index
+		})
+		for index, item := range backendWorkers {
+			if item != otherWorkers[index] {
+				isWorkersEqual = false
+			}
+		}
+	}
+	return isNameEquals && isIpEquals && isPortEquals && isWorkersEqual
 }
 
 type VServer struct {
@@ -13,14 +45,13 @@ type VServer struct {
 	Backend Backend
 }
 
+func (vserver *VServer) Equals(other *VServer) bool {
+	isPortEquals := vserver.Port == other.Port
+	isBackendEquals := vserver.Backend.Equals(&other.Backend)
+	return isPortEquals && isBackendEquals
+}
+
 type NginxConf struct {
 	VServers []VServer
 	Backends []Backend
-}
-
-type K8sService struct {
-	Namespace string
-	Name string
-	NodePort int32
-	Type v1.ServiceType
 }

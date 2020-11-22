@@ -1,20 +1,42 @@
-{{range .Backends}}
-upstream {{.Name}} {
-    {{range .Workers}}
-    server {{.IP}}:{{.Port}};
-    {{end}}
-}
-{{end}}
 
-{{range .VServers}}
+upstream 192.168.99.101_30622 {
+    
+    server :0;
+    
+    server :0;
+    
+    server :0;
+    
+}
+
+upstream 192.168.99.101_31969 {
+    
+    server :0;
+    
+    server :0;
+    
+    server :0;
+    
+}
+
+
+
 server {
-    listen {{.Port}};
+    listen 30622;
     server_name _;
     location / {
-        proxy_pass http://{{.Backend.Name}};
+        proxy_pass http://192.168.99.101_30622;
     }
 }
-{{end}}
+
+server {
+    listen 31969;
+    server_name _;
+    location / {
+        proxy_pass http://192.168.99.101_31969;
+    }
+}
+
 
 server {
         listen 80 default_server;

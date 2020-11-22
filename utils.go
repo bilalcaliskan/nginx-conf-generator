@@ -38,16 +38,7 @@ func checkError(err error) {
 // return it's key, otherwise it will return -1 and a bool of false.
 func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	for i, item := range vservers {
-		if item == vserver {
-			return i, true
-		}
-	}
-	return -1, false
-}
-
-func findK8sService(targetServices []K8sService, service K8sService) (int, bool) {
-	for i, item := range targetServices {
-		if item == service {
+		if vserver.Equals(&item) {
 			return i, true
 		}
 	}
@@ -56,7 +47,7 @@ func findK8sService(targetServices []K8sService, service K8sService) (int, bool)
 
 func findBackend(backends []Backend, backend Backend) (int, bool) {
 	for i, item := range backends {
-		if item == backend {
+		if backend.Equals(&item) {
 			return i, true
 		}
 	}

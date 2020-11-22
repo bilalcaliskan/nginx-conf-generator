@@ -14,7 +14,7 @@ import (
 	_ "time"
 )
 
-func runInformer(customAnnotation, templateInputFile, templateOutputFile, masterIp string, workerNodeIps []string, clientSet *kubernetes.Clientset) {
+func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile, masterIp string, workerNodeIpAddr []string, clientSet *kubernetes.Clientset) {
 	nginxConfPointer := &nginxConf
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
@@ -27,12 +27,28 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, master
 				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
 					nodePort)
 
+
+
 				// Create backend struct
 				backend := Backend{
 					Name: fmt.Sprintf("%s_%d", masterIp, nodePort),
-					IP: workerNodeIpAddr,
+					IP: masterIp,
 					Port: nodePort,
 				}
+
+				backendPointer := &backend
+
+				for i, v := range workerNodeIpAddr {
+					worker := Worker{
+						Index: i,
+						IP: v,
+						Port: nodePort,
+					}
+					backendPointer.Workers = append(backendPointer.Workers, worker)
+				}
+
+				log.Printf("backend = %v\n", backend)
+
 				_, found := findBackend(nginxConfPointer.Backends, backend)
 				if !found {
 					nginxConfPointer.Backends = append(nginxConfPointer.Backends, backend)
@@ -77,15 +93,39 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, master
 				// Creating Backend and Vserver structs
 				oldBackend := Backend{
 					Name: fmt.Sprintf("%s_%d", masterIp, oldNodePort),
-					IP: workerNodeIpAddr,
+					IP: masterIp,
 					Port: oldNodePort,
 				}
+				oldBackendPointer := &oldBackend
+
+				for i, v := range workerNodeIpAddr {
+					worker := Worker{
+						Index: i,
+						IP: v,
+						Port: oldNodePort,
+					}
+					oldBackendPointer.Workers = append(oldBackendPointer.Workers, worker)
+				}
+
+				log.Printf("oldBackend = %v\n", oldBackend)
 
 				newBackend := Backend{
 					Name: fmt.Sprintf("%s_%d", masterIp, newNodePort),
-					IP: workerNodeIpAddr,
+					IP: masterIp,
 					Port: newNodePort,
 				}
+				newBackendPointer := &newBackend
+
+				for i, v := range workerNodeIpAddr {
+					worker := Worker{
+						Index: i,
+						IP: v,
+						Port: oldNodePort,
+					}
+					newBackendPointer.Workers = append(newBackendPointer.Workers, worker)
+				}
+
+				log.Printf("newBackend = %v\n", newBackend)
 
 				oldVserver := VServer{
 					Port:    oldBackend.Port,
@@ -141,9 +181,20 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, master
 				// Create backend struct with nested K8sService
 				backend := Backend{
 					Name: fmt.Sprintf("%s_%d", masterIp, nodePort),
-					IP: workerNodeIpAddr,
+					IP: masterIp,
 					Port: nodePort,
 				}
+				backendPointer := &backend
+
+				for i, v := range workerNodeIpAddr {
+					worker := Worker{
+						Index: i,
+						IP: v,
+						Port: nodePort,
+					}
+					backendPointer.Workers = append(backendPointer.Workers, worker)
+				}
+
 				index, found := findBackend(nginxConfPointer.Backends, backend)
 				if found {
 					nginxConfPointer.Backends = removeFromBackendsSlice(nginxConfPointer.Backends, index)
