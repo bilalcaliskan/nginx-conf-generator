@@ -14,7 +14,7 @@ import (
 	_ "time"
 )
 
-func runInformer(customAnnotation, templateInputFile, templateOutputFile, workerNodeIpAddr string, clientSet *kubernetes.Clientset) {
+func runInformer(customAnnotation, templateInputFile, templateOutputFile, masterIp string, workerNodeIps []string, clientSet *kubernetes.Clientset) {
 	nginxConfPointer := &nginxConf
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
@@ -29,7 +29,7 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 
 				// Create backend struct
 				backend := Backend{
-					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, nodePort),
+					Name: fmt.Sprintf("%s_%d", masterIp, nodePort),
 					IP: workerNodeIpAddr,
 					Port: nodePort,
 				}
@@ -76,13 +76,13 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 
 				// Creating Backend and Vserver structs
 				oldBackend := Backend{
-					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, oldNodePort),
+					Name: fmt.Sprintf("%s_%d", masterIp, oldNodePort),
 					IP: workerNodeIpAddr,
 					Port: oldNodePort,
 				}
 
 				newBackend := Backend{
-					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, newNodePort),
+					Name: fmt.Sprintf("%s_%d", masterIp, newNodePort),
 					IP: workerNodeIpAddr,
 					Port: newNodePort,
 				}
@@ -140,7 +140,7 @@ func runInformer(customAnnotation, templateInputFile, templateOutputFile, worker
 
 				// Create backend struct with nested K8sService
 				backend := Backend{
-					Name: fmt.Sprintf("%s_%d", workerNodeIpAddr, nodePort),
+					Name: fmt.Sprintf("%s_%d", masterIp, nodePort),
 					IP: workerNodeIpAddr,
 					Port: nodePort,
 				}

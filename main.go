@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,13 +14,10 @@ var nginxConf NginxConf
 func main() {
 	kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
+	workerNodeLabel := flag.String("workerNodeLabel", "node-role.kubernetes.io/master=", "label to specify " +
+		"worker nodes, defaults to node-role.kubernetes.io/worker=")
 	customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
-
-	// TODO: Get the worker node ips from kube-apiserver, not from the command line
-	workerNodeIps := flag.String("workerNodeIps", "192.168.99.101", "comma seperated ip " +
-		"address of the worker nodes to reach the services over NodePort")
-
 	templateInputFile := flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
 		"path of the template file")
 	templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
@@ -27,23 +25,22 @@ func main() {
 	flag.Parse()
 
 	kubeConfigPathArr := strings.Split(*kubeConfigPaths, ",")
-	workerNodeIpArr := strings.Split(*workerNodeIps, ",")
-	for index, ip := range workerNodeIpArr {
-		// initialize kube client
-		restConfig, err := getConfig(kubeConfigPathArr[index])
+	for _, cluster := range kubeConfigPathArr {
+		restConfig, err := getConfig(cluster)
 		checkError(err)
 		clientSet, err := getClientSet(restConfig)
-		/*workerNodes, err := clientSet.CoreV1().Nodes().List(v1.ListOptions{
-			LabelSelector: "node-role.kubernetes.io/worker=",
-		})
-		for i, v := range workerNodes.Items {
-			println(i)
-			println(v.Status.Addresses[0].Address)
-		}*/
 		checkError(err)
-		runInformer(*customAnnotation, *templateInputFile, *templateOutputFile, ip, clientSet)
+		workerNodeList, err := clientSet.CoreV1().Nodes().List(v1.ListOptions{
+			LabelSelector: *workerNodeLabel,
+		})
+		checkError(err)
+		var workerNodeIps []string
+		for _, v := range workerNodeList.Items {
+			workerNodeIps = append(workerNodeIps, v.Status.Addresses[0].Address)
+		}
+		log.Printf("workerNodeIps on cluster %v = %v\n", restConfig.Host, workerNodeIps)
+		runInformer(*customAnnotation, *templateInputFile, *templateOutputFile, workerNodeIps, clientSet)
 	}
 
-	log.Printf("nginxConf.Backends = %v\n", nginxConf.Backends)
 	select {}
 }
