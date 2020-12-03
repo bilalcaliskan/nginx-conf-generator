@@ -116,3 +116,22 @@ func updateVserversSlice(slice []VServer, oldVserver VServer, newVserver VServer
 	log.Printf("final nginxConfPointer.Vservers slice after update operation = %v\n", slice)
 	return slice
 }
+
+func addBackend(backends *[]Backend, backend Backend) {
+	_, found := findBackend(*backends, backend)
+	if !found {
+		*backends = append(*backends, backend)
+	}
+}
+
+func addVserver(vservers *[]VServer, vserver VServer) {
+	_, found := findVserver(*vservers, vserver)
+	if !found {
+		*vservers = append(*vservers, vserver)
+	}
+}
+
+// TODO: Implement method
+func addWorker() {
+	
+}

@@ -26,7 +26,6 @@ func main() {
 	flag.Parse()
 
 	// TODO: create shared informer for nodes, handle the case that a worker is removed or any worker added to the cluster
-	// TODO: fix the broken template rendering
 	// TODO: fix the performance-related problems, use more pointers to avoid re-initializing slices etc
 
 	kubeConfigPathArr := strings.Split(*kubeConfigPaths, ",")

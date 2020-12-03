@@ -1,9 +1,26 @@
 package main
 
-type Worker struct {
-	Index int
-	IP string
+type NginxConf struct {
+	VServers []VServer
+	Backends []Backend
+}
+
+type VServer struct {
 	Port int32
+	Backend Backend
+}
+
+func (vserver *VServer) Equals(other *VServer) bool {
+	isPortEquals := vserver.Port == other.Port
+	isBackendEquals := vserver.Backend.Equals(&other.Backend)
+	return isPortEquals && isBackendEquals
+}
+
+func newVServer(port int32, backend Backend) *VServer {
+	return &VServer{
+		Port:    port,
+		Backend: backend,
+	}
 }
 
 type Backend struct {
@@ -39,18 +56,24 @@ func (backend *Backend) Equals(other *Backend) bool {
 	return isNameEquals && isIpEquals && isPortEquals
 }
 
-type VServer struct {
-	Port int32
-	Backend Backend
+func newBackend(name, masterIp string, nodePort int32) *Backend {
+	return &Backend{
+		Name:    name,
+		IP:      masterIp,
+		Port:    nodePort,
+		Workers: make([]Worker, 0),
+	}
 }
 
-func (vserver *VServer) Equals(other *VServer) bool {
-	isPortEquals := vserver.Port == other.Port
-	isBackendEquals := vserver.Backend.Equals(&other.Backend)
-	return isPortEquals && isBackendEquals
+type Worker struct {
+	Index, Port int32
+	IP string
 }
 
-type NginxConf struct {
-	VServers []VServer
-	Backends []Backend
+func newWorker(index, port int32, ip string) *Worker {
+	return &Worker{
+		Index: index,
+		Port:  port,
+		IP:    ip,
+	}
 }
