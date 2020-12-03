@@ -1,7 +1,5 @@
 package main
 
-import "sort"
-
 type Worker struct {
 	Index int
 	IP string
@@ -18,7 +16,7 @@ func (backend *Backend) Equals(other *Backend) bool {
 	isNameEquals := backend.Name == other.Name
 	isIpEquals := backend.IP == other.IP
 	isPortEquals := backend.Port == other.Port
-	isWorkersEqual := len(backend.Workers) == len(other.Workers)
+	/*isWorkersEqual := len(backend.Workers) == len(other.Workers)
 	if isWorkersEqual {  // copy slices so sorting won't affect original structs
 		backendWorkers := make([]Worker, len(backend.Workers))
 		otherWorkers := make([]Worker, len(other.Workers))
@@ -36,8 +34,9 @@ func (backend *Backend) Equals(other *Backend) bool {
 				isWorkersEqual = false
 			}
 		}
-	}
-	return isNameEquals && isIpEquals && isPortEquals && isWorkersEqual
+	}*/
+	// return isNameEquals && isIpEquals && isPortEquals && isWorkersEqual
+	return isNameEquals && isIpEquals && isPortEquals
 }
 
 type VServer struct {

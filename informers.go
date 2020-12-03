@@ -24,30 +24,28 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
 				nodePort := service.Spec.Ports[0].NodePort
-				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
-					nodePort)
-
-
+				/*log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
+					nodePort)*/
 
 				// Create backend struct
 				backend := Backend{
 					Name: fmt.Sprintf("%s_%d", masterIp, nodePort),
 					IP: masterIp,
 					Port: nodePort,
+					Workers: make([]Worker, 0),
 				}
 
-				backendPointer := &backend
-
+				log.Println()
+				log.Printf("workerNodeIpAddr = %v\n", workerNodeIpAddr)
 				for i, v := range workerNodeIpAddr {
 					worker := Worker{
 						Index: i,
 						IP: v,
 						Port: nodePort,
 					}
-					backendPointer.Workers = append(backendPointer.Workers, worker)
+					log.Printf("appending worker %v:%v to backend %v\n", v, nodePort, backend.Name)
+					backend.Workers = append(backend.Workers, worker)
 				}
-
-				log.Printf("backend = %v\n", backend)
 
 				_, found := findBackend(nginxConfPointer.Backends, backend)
 				if !found {
@@ -64,7 +62,10 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 					nginxConfPointer.VServers = append(nginxConfPointer.VServers, vserver)
 				}
 
+				log.Printf("Workers of backend %v = backend.Workers = %v\n", backend.Name, backend.Workers)
 
+
+				log.Printf("final nginxConfPointer.VServers = %v\nfinal nginxConfPointer.Backends = %v\n", nginxConfPointer.VServers, nginxConfPointer.Backends)
 				// Apply changes to the template
 				tpl := template.Must(template.ParseFiles(templateInputFile))
 				f, err := os.Create(templateOutputFile)
@@ -81,6 +82,7 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			/*
 			oldService := oldObj.(*v1.Service)
 			newService := newObj.(*v1.Service)
 			// TODO: Handle the case that annotation is removed from the new service
@@ -167,11 +169,12 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 				err = f.Close()
 				checkError(err)
 
+			 */
 				/*err = reloadNginx()
 				checkError(err)*/
-			}
 		},
 		DeleteFunc: func(obj interface{}) {
+			/*
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
@@ -221,9 +224,10 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 				err = f.Close()
 				checkError(err)
 
+			 */
+
 				/*err = reloadNginx()
 				checkError(err)*/
-			}
 		},
 	})
 	informerFactory.Start(wait.NeverStop)
