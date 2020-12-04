@@ -67,6 +67,7 @@ func removeFromBackendsSlice(slice []Backend, index int) []Backend {
 	return append(slice[:index], slice[index+1:]...)
 }
 
+// TODO: return pointer type []Backend
 func updateBackendsSlice(slice []Backend, oldBackend Backend, newBackend Backend) []Backend {
 	oldIndex, oldFound := findBackend(slice, oldBackend)
 	if oldFound {
@@ -94,6 +95,7 @@ func removeFromVserversSlice(slice []VServer, index int) []VServer {
 	return append(slice[:index], slice[index+1:]...)
 }
 
+// TODO: return pointer type []VServer
 func updateVserversSlice(slice []VServer, oldVserver VServer, newVserver VServer) []VServer {
 	oldIndex, oldFound := findVserver(slice, oldVserver)
 	if oldFound {

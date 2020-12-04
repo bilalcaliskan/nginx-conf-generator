@@ -20,9 +20,9 @@ func main() {
 		"selectable services")
 	templateInputFile := flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
 		"path of the template file")
-	/*templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
-		"path of the template file")*/
-	templateOutputFile := flag.String("templateOutputFile", "default", "output path of the template file")
+	templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
+		"path of the template file")
+	// templateOutputFile := flag.String("templateOutputFile", "default", "output path of the template file")
 	flag.Parse()
 
 	// TODO: create shared informer for nodes, handle the case that a worker is removed or any worker added to the cluster
