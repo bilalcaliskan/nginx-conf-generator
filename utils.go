@@ -34,7 +34,6 @@ func checkError(err error) {
 	}
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	for i, item := range vservers {
 		if vserver.Equals(&item) {
@@ -44,7 +43,6 @@ func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	return -1, false
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func findBackend(backends []Backend, backend Backend) (int, bool) {
 	for i, item := range backends {
 		if backend.Equals(&item) {
@@ -63,12 +61,10 @@ func reloadNginx() error {
 	return nil
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func removeFromBackendsSlice(slice []Backend, index int) []Backend {
 	return append(slice[:index], slice[index+1:]...)
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 // TODO: refactor the function
 func updateBackendsSlice(slice *[]Backend, oldBackend Backend, newBackend Backend) {
 	oldIndex, oldFound := findBackend(*slice, oldBackend)
@@ -92,12 +88,10 @@ func updateBackendsSlice(slice *[]Backend, oldBackend Backend, newBackend Backen
 	log.Printf("final nginxConf.Backends slice after update operation = %v\n", slice)
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func removeFromVServersSlice(slice []VServer, index int) []VServer {
 	return append(slice[:index], slice[index+1:]...)
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 // TODO: refactor the function
 func updateVServersSlice(slice *[]VServer, oldVserver VServer, newVserver VServer) {
 	oldIndex, oldFound := findVserver(*slice, oldVserver)
@@ -121,7 +115,6 @@ func updateVServersSlice(slice *[]VServer, oldVserver VServer, newVserver VServe
 	log.Printf("final nginxConf.VServers slice after update operation = %v\n", slice)
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func addBackend(backends *[]Backend, backend Backend) {
 	_, found := findBackend(*backends, backend)
 	if !found {
@@ -129,7 +122,6 @@ func addBackend(backends *[]Backend, backend Backend) {
 	}
 }
 
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func addVserver(vservers *[]VServer, vserver VServer) {
 	_, found := findVserver(*vservers, vserver)
 	if !found {

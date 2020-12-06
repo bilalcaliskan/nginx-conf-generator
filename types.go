@@ -10,11 +10,11 @@ type VServer struct {
 	Backend Backend
 }
 
-func (vserver *VServer) Equals(other *VServer) bool {
+/*func (vserver *VServer) Equals(other *VServer) bool {
 	isPortEquals := vserver.Port == other.Port
 	isBackendEquals := vserver.Backend.Equals(&other.Backend)
 	return isPortEquals && isBackendEquals
-}
+}*/
 
 func newVServer(port int32, backend Backend) *VServer {
 	return &VServer{
@@ -24,12 +24,12 @@ func newVServer(port int32, backend Backend) *VServer {
 }
 
 type Backend struct {
-	Name, IP string
-	Port int32
+	MasterIP string
 	Workers []Worker
+	NodePorts []int32
 }
 
-func (backend *Backend) Equals(other *Backend) bool {
+/*func (backend *Backend) Equals(other *Backend) bool {
 	isNameEquals := backend.Name == other.Name
 	isIpEquals := backend.IP == other.IP
 	isPortEquals := backend.Port == other.Port
@@ -51,7 +51,7 @@ func (backend *Backend) Equals(other *Backend) bool {
 				isWorkersEqual = false
 			}
 		}
-	}*/
+	}
 	// return isNameEquals && isIpEquals && isPortEquals && isWorkersEqual
 	return isNameEquals && isIpEquals && isPortEquals
 }
@@ -63,17 +63,14 @@ func newBackend(name, masterIp string, nodePort int32) *Backend {
 		Port:    nodePort,
 		Workers: make([]Worker, 0),
 	}
-}
+}*/
 
 type Worker struct {
-	Index, Port int32
 	IP string
 }
 
-func newWorker(index, port int32, ip string) *Worker {
+func newWorker(ip string) *Worker {
 	return &Worker{
-		Index: index,
-		Port:  port,
 		IP:    ip,
 	}
 }

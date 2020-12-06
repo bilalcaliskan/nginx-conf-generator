@@ -1,32 +1,54 @@
 package main
 
 import (
-	"fmt"
-	"html/template"
+	// "fmt"
+	// "html/template"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
+	// "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"log"
-	"os"
+	// "os"
 	"time"
 	_ "time"
 )
 
 // TODO: Implement that informer to update a pointer on workerNodeIpAddr []string about node changes(added, removed etc)
-func runNodeInformer(masterIp string, clientSet *kubernetes.Clientset) {
+func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNodeLabel string) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    nil,
-		UpdateFunc: nil,
-		DeleteFunc: nil,
+		AddFunc: func(obj interface{}) {
+			node := obj.(*v1.Node)
+			var nodeReady v1.ConditionStatus
+			_, ok := node.Labels[workerNodeLabel]
+
+			// TODO: refactor
+			for _, v := range node.Status.Conditions {
+				if v.Type == v1.NodeReady {
+					nodeReady = v.Status
+					log.Printf("v1.NodeReady status of node %v = %v\n", node, nodeReady)
+				}
+			}
+			if ok {
+				worker := Worker{IP: node.Status.Addresses[0].Address}
+				backend.Workers = append(backend.Workers, worker)
+			}
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			/*oldNode := oldObj.(*v1.Node)
+			newNode := newObj.(*v1.Node)*/
+
+		},
+		DeleteFunc: func(obj interface{}) {
+
+		},
 	})
 }
 
 func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile, masterIp string, workerNodeIpAddr []string, clientSet *kubernetes.Clientset) {
-	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
+	/*informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -61,8 +83,8 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 				err = f.Close()
 				checkError(err)
 
-				/*err = reloadNginx()
-				checkError(err)*/
+				//err = reloadNginx()
+				//checkError(err)
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -109,8 +131,8 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 				err = f.Close()
 				checkError(err)
 
-				/*err = reloadNginx()
-				checkError(err)*/
+				// err = reloadNginx()
+				// checkError(err)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -145,11 +167,12 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 				err = f.Close()
 				checkError(err)
 
-				/*err = reloadNginx()
-				checkError(err)*/
+				// err = reloadNginx()
+				// checkError(err)
 			}
 		},
 	})
 	informerFactory.Start(wait.NeverStop)
 	informerFactory.WaitForCacheSync(wait.NeverStop)
+	*/
 }
