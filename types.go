@@ -1,5 +1,7 @@
 package main
 
+import v1 "k8s.io/api/core/v1"
+
 type NginxConf struct {
 	VServers []VServer
 	Backends []Backend
@@ -66,11 +68,19 @@ func newBackend(name, masterIp string, nodePort int32) *Backend {
 }*/
 
 type Worker struct {
-	IP string
+	MasterIP, HostIP string
+	NodeCondition v1.ConditionStatus
 }
 
-func newWorker(ip string) *Worker {
+func (worker *Worker) Equals(other *Worker) bool {
+	isMasterIPEquals := worker.MasterIP == other.MasterIP
+	isHostIPEquals := worker.HostIP == other.HostIP
+	return isMasterIPEquals && isHostIPEquals
+}
+
+func newWorker(masterIp, hostIp string) *Worker {
 	return &Worker{
-		IP:    ip,
+		MasterIP: masterIp,
+		HostIP: hostIp,
 	}
 }

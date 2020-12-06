@@ -34,7 +34,7 @@ func checkError(err error) {
 	}
 }
 
-func findVserver(vservers []VServer, vserver VServer) (int, bool) {
+/*func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	for i, item := range vservers {
 		if vserver.Equals(&item) {
 			return i, true
@@ -50,7 +50,7 @@ func findBackend(backends []Backend, backend Backend) (int, bool) {
 		}
 	}
 	return -1, false
-}
+}*/
 
 func reloadNginx() error {
 	cmd := exec.Command("nginx", "-s", "reload")
@@ -66,7 +66,7 @@ func removeFromBackendsSlice(slice []Backend, index int) []Backend {
 }
 
 // TODO: refactor the function
-func updateBackendsSlice(slice *[]Backend, oldBackend Backend, newBackend Backend) {
+/*func updateBackendsSlice(slice *[]Backend, oldBackend Backend, newBackend Backend) {
 	oldIndex, oldFound := findBackend(*slice, oldBackend)
 	if oldFound {
 		log.Printf("update operation is starting on the nginxConf.Backends slice...%v\n", slice)
@@ -133,4 +133,17 @@ func addVserver(vservers *[]VServer, vserver VServer) {
 // TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func addWorker() {
 	
+}*/
+
+func findWorker(workers []Worker, worker Worker) (int, bool) {
+	for i, item := range workers {
+		if worker.Equals(&item) {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+func removeWorker(slice []Worker, index int) []Worker {
+	return append(slice[:index], slice[index+1:]...)
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"log"
 	"os"
 	"path/filepath"
@@ -15,7 +15,7 @@ var nginxConf NginxConf
 func main() {
 	kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
-	workerNodeLabel := flag.String("workerNodeLabel", "node-role.kubernetes.io/worker=", "label to specify " +
+	workerNodeLabel := flag.String("workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
 		"worker nodes, defaults to node-role.kubernetes.io/worker=")
 	// customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 	//	"selectable services")
