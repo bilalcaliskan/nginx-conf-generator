@@ -34,29 +34,20 @@ func checkError(err error) {
 	}
 }
 
-// findItem takes a slice and looks for an element in it. If found it will
-// return it's key, otherwise it will return -1 and a bool of false.
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func findVserver(vservers []VServer, vserver VServer) (int, bool) {
 	for i, item := range vservers {
-		if item == vserver {
+		if vserver.Equals(&item) {
 			return i, true
 		}
 	}
 	return -1, false
 }
 
-func findK8sService(targetServices []K8sService, service K8sService) (int, bool) {
-	for i, item := range targetServices {
-		if item == service {
-			return i, true
-		}
-	}
-	return -1, false
-}
-
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func findBackend(backends []Backend, backend Backend) (int, bool) {
 	for i, item := range backends {
-		if item == backend {
+		if backend.Equals(&item) {
 			return i, true
 		}
 	}
@@ -72,56 +63,82 @@ func reloadNginx() error {
 	return nil
 }
 
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func removeFromBackendsSlice(slice []Backend, index int) []Backend {
 	return append(slice[:index], slice[index+1:]...)
 }
 
-func updateBackendsSlice(slice []Backend, oldBackend Backend, newBackend Backend) []Backend {
-	oldIndex, oldFound := findBackend(slice, oldBackend)
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
+// TODO: refactor the function
+func updateBackendsSlice(slice *[]Backend, oldBackend Backend, newBackend Backend) {
+	oldIndex, oldFound := findBackend(*slice, oldBackend)
 	if oldFound {
-		log.Printf("update operation is starting on the nginxConfPointer.Backends slice %v\n", slice)
-		log.Printf("removing backend %v from nginxConfPointer.Backends slice!\n", oldBackend)
-		slice = removeFromBackendsSlice(slice, oldIndex)
+		log.Printf("update operation is starting on the nginxConf.Backends slice...%v\n", slice)
+		log.Printf("removing backend %v from nginxConf.Backends slice!\n", oldBackend)
+		*slice = removeFromBackendsSlice(*slice, oldIndex)
 
-		_, newFound := findBackend(slice, newBackend)
+		_, newFound := findBackend(*slice, newBackend)
 		if !newFound {
-			log.Printf("adding backend %v to nginxConfPointer.Backends slice!\n", newBackend)
-			slice = append(slice, newBackend)
+			log.Printf("adding backend %v to nginxConf.Backends slice!\n", newBackend)
+			*slice = append(*slice, newBackend)
 		} else {
-			log.Printf("new backend %v already found in the nginxConfPointer.Backends slice, skipping insertion...\n", newBackend)
+			log.Printf("new backend %v already found in the nginxConf.Backends slice, skipping insertion...\n", newBackend)
 		}
 	} else {
-		log.Printf("old backend %v not found in the nginxConfPointer.Backends slice, skipping insertion, instead adding the new one %v...\n",
+		log.Printf("old backend %v not found in the nginxConf.Backends slice, skipping insertion, instead adding the new one %v...\n",
 			oldBackend, newBackend)
-		slice = append(slice, newBackend)
+		*slice = append(*slice, newBackend)
 	}
-	log.Printf("final nginxConfPointer.Backends slice after update operation = %v\n", slice)
-	return slice
+	log.Printf("final nginxConf.Backends slice after update operation = %v\n", slice)
 }
 
-func removeFromVserversSlice(slice []VServer, index int) []VServer {
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
+func removeFromVServersSlice(slice []VServer, index int) []VServer {
 	return append(slice[:index], slice[index+1:]...)
 }
 
-func updateVserversSlice(slice []VServer, oldVserver VServer, newVserver VServer) []VServer {
-	oldIndex, oldFound := findVserver(slice, oldVserver)
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
+// TODO: refactor the function
+func updateVServersSlice(slice *[]VServer, oldVserver VServer, newVserver VServer) {
+	oldIndex, oldFound := findVserver(*slice, oldVserver)
 	if oldFound {
-		log.Printf("update operation is starting on the nginxConfPointer.Vservers slice %v\n", slice)
-		log.Printf("removing vserver %v from nginxConfPointer.Vservers slice!\n", oldVserver)
-		slice = removeFromVserversSlice(slice, oldIndex)
+		log.Printf("update operation is starting on the nginxConf.VServers slice...%v\n", slice)
+		log.Printf("removing backend %v from nginxConf.VServers slice!\n", oldVserver)
+		*slice = removeFromVServersSlice(*slice, oldIndex)
 
-		_, newFound := findVserver(slice, newVserver)
+		_, newFound := findVserver(*slice, newVserver)
 		if !newFound {
-			log.Printf("adding vserver %v to nginxConfPointer.Vservers slice!\n", newVserver)
-			slice = append(slice, newVserver)
+			log.Printf("adding vserver %v to nginxConf.VServers slice!\n", newVserver)
+			*slice = append(*slice, newVserver)
 		} else {
-			log.Printf("new vserver %v already found in the nginxConfPointer.Vservers slice, skipping insertion...\n", newVserver)
+			log.Printf("new vserver %v already found in the nginxConf.VServers slice, skipping insertion...\n", newVserver)
 		}
 	} else {
-		log.Printf("old vserver %v not found in the nginxConfPointer.Vservers slice, skipping insertion, instead adding the new one %v...\n",
+		log.Printf("old vserver %v not found in the nginxConf.VServers slice, skipping insertion, instead adding the new one %v...\n",
 			oldVserver, newVserver)
-		slice = append(slice, newVserver)
+		*slice = append(*slice, newVserver)
 	}
-	log.Printf("final nginxConfPointer.Vservers slice after update operation = %v\n", slice)
-	return slice
+	log.Printf("final nginxConf.VServers slice after update operation = %v\n", slice)
+}
+
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
+func addBackend(backends *[]Backend, backend Backend) {
+	_, found := findBackend(*backends, backend)
+	if !found {
+		*backends = append(*backends, backend)
+	}
+}
+
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
+func addVserver(vservers *[]VServer, vserver VServer) {
+	_, found := findVserver(*vservers, vserver)
+	if !found {
+		*vservers = append(*vservers, vserver)
+	}
+}
+
+// TODO: Implement method
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
+func addWorker() {
+	
 }

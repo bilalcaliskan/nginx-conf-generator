@@ -1,6 +1,8 @@
 {{range .Backends}}
 upstream {{.Name}} {
+    {{range .Workers}}
     server {{.IP}}:{{.Port}};
+    {{end}}
 }
 {{end}}
 

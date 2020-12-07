@@ -1,11 +1,8 @@
 package main
 
-import v1 "k8s.io/api/core/v1"
-
-type Backend struct {
-	Name, IP string
-	Port int32
-	K8sService
+type NginxConf struct {
+	VServers []VServer
+	Backends []Backend
 }
 
 type VServer struct {
@@ -13,14 +10,70 @@ type VServer struct {
 	Backend Backend
 }
 
-type NginxConf struct {
-	VServers []VServer
-	Backends []Backend
+func (vserver *VServer) Equals(other *VServer) bool {
+	isPortEquals := vserver.Port == other.Port
+	isBackendEquals := vserver.Backend.Equals(&other.Backend)
+	return isPortEquals && isBackendEquals
 }
 
-type K8sService struct {
-	Namespace string
-	Name string
-	NodePort int32
-	Type v1.ServiceType
+func newVServer(port int32, backend Backend) *VServer {
+	return &VServer{
+		Port:    port,
+		Backend: backend,
+	}
+}
+
+type Backend struct {
+	Name, IP string
+	Port int32
+	Workers []Worker
+}
+
+func (backend *Backend) Equals(other *Backend) bool {
+	isNameEquals := backend.Name == other.Name
+	isIpEquals := backend.IP == other.IP
+	isPortEquals := backend.Port == other.Port
+	/*isWorkersEqual := len(backend.Workers) == len(other.Workers)
+	if isWorkersEqual {  // copy slices so sorting won't affect original structs
+		backendWorkers := make([]Worker, len(backend.Workers))
+		otherWorkers := make([]Worker, len(other.Workers))
+		copy(backend.Workers, backendWorkers)
+		copy(other.Workers, otherWorkers)
+		// Sort by index, keeping original order or equal elements.
+		sort.SliceStable(backendWorkers, func(i, j int) bool {
+			return backendWorkers[i].Index < backendWorkers[j].Index
+		})
+		sort.SliceStable(otherWorkers, func(i, j int) bool {
+			return otherWorkers[i].Index < otherWorkers[j].Index
+		})
+		for index, item := range backendWorkers {
+			if item != otherWorkers[index] {
+				isWorkersEqual = false
+			}
+		}
+	}*/
+	// return isNameEquals && isIpEquals && isPortEquals && isWorkersEqual
+	return isNameEquals && isIpEquals && isPortEquals
+}
+
+func newBackend(name, masterIp string, nodePort int32) *Backend {
+	return &Backend{
+		Name:    name,
+		IP:      masterIp,
+		Port:    nodePort,
+		Workers: make([]Worker, 0),
+	}
+}
+
+type Worker struct {
+	Index, Port int32
+	IP string
+}
+
+func newWorker(index, port int32, ip string) *Worker {
+	return &Worker{
+		Index: index,
+		Port:  port,
+		IP:    ip,
+	}
 }
