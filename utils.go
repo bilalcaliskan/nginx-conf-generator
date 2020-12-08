@@ -1,6 +1,7 @@
 package main
 
 import (
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -146,4 +147,13 @@ func findWorker(workers []Worker, worker Worker) (int, bool) {
 
 func removeWorker(slice []Worker, index int) []Worker {
 	return append(slice[:index], slice[index+1:]...)
+}
+
+func isNodeReady(node *v1.Node) v1.ConditionStatus {
+	for _, v := range node.Status.Conditions {
+		if v.Type == v1.NodeReady {
+			return v.Status
+		}
+	}
+	return "False"
 }

@@ -53,7 +53,10 @@ func main() {
 			Workers:   make([]Worker, 0),
 			NodePorts: make([]int32, 0),
 		}
-		runNodeInformer(&backend, clientSet, *workerNodeLabel)
+
+		// run nodeInformer with seperate goroutine
+		go runNodeInformer(&backend, clientSet, *workerNodeLabel)
+
 		// runServiceInformer(*customAnnotation, *templateInputFile, *templateOutputFile, masterIp, workerNodeIps, clientSet)
 	}
 

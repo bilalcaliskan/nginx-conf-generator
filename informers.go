@@ -16,95 +16,79 @@ import (
 	_ "time"
 )
 
-// TODO: Implement that informer to update a pointer on workerNodeIpAddr []string about node changes(added, removed etc)
 func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNodeLabel string) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
-			var nodeReady v1.ConditionStatus
 			_, ok := node.Labels[workerNodeLabel]
-
-			// TODO: refactor
-			for _, v := range node.Status.Conditions {
-				if v.Type == v1.NodeReady {
-					nodeReady = v.Status
-				}
-			}
+			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
 				log.Printf("adding node %v to the backend.Workers\n", node.Status.Addresses[0].Address)
-				worker := Worker{
-					MasterIP: backend.MasterIP,
-					HostIP: node.Status.Addresses[0].Address,
-					NodeCondition: nodeReady,
-				}
-				backend.Workers = append(backend.Workers, worker)
+				worker := newWorker(backend.MasterIP, node.Status.Addresses[0].Address, nodeReady)
+				backend.Workers = append(backend.Workers, *worker)
+				log.Printf("final backend.Workers = %v\n", backend.Workers)
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			oldNode := oldObj.(*v1.Node)
 			newNode := newObj.(*v1.Node)
 
+			// there is an update for sure
 			if oldNode.ResourceVersion != newNode.ResourceVersion {
-				var oldNodeReady, newNodeReady v1.ConditionStatus
 				_, newOk := newNode.Labels[workerNodeLabel]
+				oldWorker := newWorker(backend.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
+				newWorker := newWorker(backend.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
-				// TODO: refactor
-				for _, v := range oldNode.Status.Conditions {
-					if v.Type == v1.NodeReady {
-						oldNodeReady = v.Status
-					}
-				}
-
-				oldWorker := Worker{
-					MasterIP: backend.MasterIP,
-					HostIP: oldNode.Status.Addresses[0].Address,
-					NodeCondition: oldNodeReady,
-				}
-
-				// TODO: refactor
-				for _, v := range newNode.Status.Conditions {
-					if v.Type == v1.NodeReady {
-						newNodeReady = v.Status
-					}
-				}
-
-				newWorker := Worker{
-					MasterIP: backend.MasterIP,
-					HostIP: oldNode.Status.Addresses[0].Address,
-					NodeCondition: newNodeReady,
-				}
-
-
-				// - old node was at the slice backend.Workers:
-				//   - new node is no more healthy or new node is no more labeled
-				// - remove node from backend.Workers
-				oldWorkerIndex, oldWorkerFound := findWorker(backend.Workers, oldWorker)
+				oldWorkerIndex, oldWorkerFound := findWorker(backend.Workers, *oldWorker)
 				if oldWorkerFound {
-					if newOk && newWorker.NodeCondition == "True" {
-						log.Printf("node %v is still labeled and still healthy, skipping...\n", oldWorker.HostIP)
-						return
+					// - old node was at the slice backend.Workers:
+					//   - new node is no more healthy or new node is no more labeled
+					//     - remove node from backend.Workers
+					//   - new node is still healthy and labelled
+					//     - do nothing
+					if newWorker.NodeCondition == "True" && newOk {
+						log.Printf("node %v is still healthy and labelled, skipping...\n", *oldWorker)
 					} else {
-						log.Printf("node %v is unlabeled or not healthy, removing from backend.Workers!\n", oldWorker.HostIP)
+						log.Printf("node %v is not healthy or is not labelled, removing from backend.Workers!\n",
+							*oldWorker)
 						backend.Workers = removeWorker(backend.Workers, oldWorkerIndex)
+						log.Printf("final backend.Workers = %v\n", backend.Workers)
+					}
+				} else {
+					// - old node was not at the slice backend.Workers:
+					//   - new node is healthy and node is labelled
+					//     - ensure old node was not at backend.Workers, add new node to backend.Workers.
+					//   - new node is not healthy or not labelled
+					if newWorker.NodeCondition == "True" && newOk {
+						log.Printf("node %v is now healthy and labeled, adding to the backend.Workers slice...\n",
+							*oldWorker)
+						backend.Workers = append(backend.Workers, *newWorker)
+						log.Printf("final backend.Workers = %v\n", backend.Workers)
+					} else {
+						log.Printf("node %v is still unhealthy or unlabelled, skipping...\n", *oldWorker)
 					}
 				}
-
-				// - old node was not at the slice backend.Workers:
-				//   - new node is healthy and node is labelled
-				// - ensure old node was not at backend.Workers, add new node to backend.Workers.
-				if !oldWorkerFound && newOk && newWorker.NodeCondition == "True" {
-					log.Printf("there is an update on the node %v, adding to the backend.Workers slice...\n", oldWorker.HostIP)
-					backend.Workers = append(backend.Workers, newWorker)
-				}
-
-				log.Printf("final backend.Workers = %v\n", backend.Workers)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
-
+			node := obj.(*v1.Node)
+			worker := Worker{
+				MasterIP: backend.MasterIP,
+				HostIP: node.Status.Addresses[0].Address,
+			}
+			log.Printf("delete event fetched for worker %v!\n", worker)
+			index, found := findWorker(backend.Workers, worker)
+			if found {
+				log.Printf("worker %v found in the backend.Workers, removing...\n", worker)
+				backend.Workers = removeWorker(backend.Workers, index)
+				log.Printf("successfully removed worker %v from backend.Workers slice!\n", worker)
+				log.Printf("final backend.Workers after delete operation = %v\n", backend.Workers)
+			} else {
+				log.Printf("worker %v NOT found in the backend.Workers, skipping remove operation!\n", worker)
+			}
 		},
 	})
 	informerFactory.Start(wait.NeverStop)

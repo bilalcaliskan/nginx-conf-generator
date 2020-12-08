@@ -78,9 +78,10 @@ func (worker *Worker) Equals(other *Worker) bool {
 	return isMasterIPEquals && isHostIPEquals
 }
 
-func newWorker(masterIp, hostIp string) *Worker {
+func newWorker(masterIp, hostIp string, nodeReady v1.ConditionStatus) *Worker {
 	return &Worker{
 		MasterIP: masterIp,
 		HostIP: hostIp,
+		NodeCondition: nodeReady,
 	}
 }
