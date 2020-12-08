@@ -6,7 +6,7 @@ upstream {{.Name}} {
 }
 {{end}}
 
-{{range .VServers}}
+{{range .Backends}}
 server {
     listen {{.Port}};
     server_name _;

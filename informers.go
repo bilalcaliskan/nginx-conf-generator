@@ -1,8 +1,10 @@
 package main
 
 import (
+	"os"
+
 	// "fmt"
-	// "html/template"
+	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"log"
@@ -95,8 +97,8 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 	informerFactory.WaitForCacheSync(wait.NeverStop)
 }
 
-func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile, masterIp string, workerNodeIpAddr []string, clientSet *kubernetes.Clientset) {
-	/*informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
+func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, customAnnotation, templateInputFile, templateOutputFile string) {
+	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -107,18 +109,15 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
 					nodePort)
 
-				backend := newBackend(fmt.Sprintf("%s_%d", masterIp, nodePort), masterIp, nodePort)
-				for i, v := range workerNodeIpAddr {
-					worker := newWorker(int32(i), nodePort, v)
-					log.Printf("appending worker %v:%v to backend %v\n", v, nodePort, backend.Name)
-					backend.Workers = append(backend.Workers, *worker)
-				}
-				log.Printf("Adding backend %v to the &nginxConf.Backends\n", backend)
-				addBackend(&nginxConf.Backends, *backend)
+				vserver := newVServer(nodePort)
 
-				vserver := newVServer(backend.Port, *backend)
-				log.Printf("Adding vserver %v to the &nginxConf.VServers\n", vserver)
-				addVserver(&nginxConf.VServers, *vserver)
+				if !backend.isVServerExists(*vserver) {
+					log.Printf("vserver %v not found in the backend.NodePorts, appending...\n", vserver)
+					backend.VServers = append(backend.VServers, *vserver)
+					log.Printf("final backend.VServers = %v\n", backend.VServers)
+				} else {
+					log.Printf("vserver %v already found in the backend.VServers, skipping...\n", vserver)
+				}
 
 				// Apply changes to the template
 				tpl := template.Must(template.ParseFiles(templateInputFile))
@@ -133,10 +132,38 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 
 				//err = reloadNginx()
 				//checkError(err)
+
+				/*backend := newBackend(fmt.Sprintf("%s_%d", masterIp, nodePort), masterIp, nodePort)
+					for i, v := range workerNodeIpAddr {
+						worker := newWorker(int32(i), nodePort, v)
+						log.Printf("appending worker %v:%v to backend %v\n", v, nodePort, backend.Name)
+						backend.Workers = append(backend.Workers, *worker)
+					}
+					log.Printf("Adding backend %v to the &nginxConf.Backends\n", backend)
+					addBackend(&nginxConf.Backends, *backend)
+
+					vserver := newVServer(backend.Port, *backend)
+					log.Printf("Adding vserver %v to the &nginxConf.VServers\n", vserver)
+					addVserver(&nginxConf.VServers, *vserver)
+
+					// Apply changes to the template
+					tpl := template.Must(template.ParseFiles(templateInputFile))
+					f, err := os.Create(templateOutputFile)
+					checkError(err)
+
+					err = tpl.Execute(f, &nginxConf)
+					checkError(err)
+
+					err = f.Close()
+					checkError(err)
+
+					//err = reloadNginx()
+					//checkError(err)
+				}*/
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			oldService := oldObj.(*v1.Service)
+			/*oldService := oldObj.(*v1.Service)
 			newService := newObj.(*v1.Service)
 			// TODO: Handle the case that annotation is removed from the new service
 			if oldService.Spec.Type == "NodePort" && oldService.ResourceVersion != newService.ResourceVersion {
@@ -181,9 +208,10 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 
 				// err = reloadNginx()
 				// checkError(err)
-			}
+			}*/
 		},
 		DeleteFunc: func(obj interface{}) {
+			/*
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
@@ -217,10 +245,9 @@ func runServiceInformer(customAnnotation, templateInputFile, templateOutputFile,
 
 				// err = reloadNginx()
 				// checkError(err)
-			}
+			}*/
 		},
 	})
 	informerFactory.Start(wait.NeverStop)
 	informerFactory.WaitForCacheSync(wait.NeverStop)
-	*/
 }

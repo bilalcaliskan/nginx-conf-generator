@@ -1,41 +1,12 @@
 package main
 
-import v1 "k8s.io/api/core/v1"
-
-type NginxConf struct {
-	VServers []VServer
-	Backends []Backend
-}
-
-type VServer struct {
-	Port int32
-	Backend Backend
-}
-
-/*func (vserver *VServer) Equals(other *VServer) bool {
-	isPortEquals := vserver.Port == other.Port
-	isBackendEquals := vserver.Backend.Equals(&other.Backend)
-	return isPortEquals && isBackendEquals
-}*/
-
-func newVServer(port int32, backend Backend) *VServer {
-	return &VServer{
-		Port:    port,
-		Backend: backend,
-	}
-}
-
-type Backend struct {
-	MasterIP string
-	Workers []Worker
-	NodePorts []int32
-}
+import (
+	v1 "k8s.io/api/core/v1"
+)
 
 /*func (backend *Backend) Equals(other *Backend) bool {
-	isNameEquals := backend.Name == other.Name
-	isIpEquals := backend.IP == other.IP
-	isPortEquals := backend.Port == other.Port
-	/*isWorkersEqual := len(backend.Workers) == len(other.Workers)
+	isMasterIPEquals := backend.MasterIP == other.MasterIP
+	isWorkersEqual := len(backend.Workers) == len(other.Workers)
 	if isWorkersEqual {  // copy slices so sorting won't affect original structs
 		backendWorkers := make([]Worker, len(backend.Workers))
 		otherWorkers := make([]Worker, len(other.Workers))
@@ -56,16 +27,49 @@ type Backend struct {
 	}
 	// return isNameEquals && isIpEquals && isPortEquals && isWorkersEqual
 	return isNameEquals && isIpEquals && isPortEquals
+}*/
+
+type NginxConf struct {
+	VServers []VServer
+	Backends []Backend
 }
 
-func newBackend(name, masterIp string, nodePort int32) *Backend {
-	return &Backend{
-		Name:    name,
-		IP:      masterIp,
-		Port:    nodePort,
-		Workers: make([]Worker, 0),
+type VServer struct {
+	Port int32
+}
+
+func (vserver *VServer) Equals(other VServer) bool {
+	return vserver.Port == other.Port
+}
+
+func newVServer(port int32) *VServer {
+	return &VServer{
+		Port:    port,
 	}
-}*/
+}
+
+type Backend struct {
+	MasterIP string
+	Workers []Worker
+	VServers []VServer
+}
+
+func newBackend(masterIP string, workers []Worker, vservers []VServer) *Backend {
+	return &Backend{
+		MasterIP: masterIP,
+		Workers: workers,
+		VServers: vservers,
+	}
+}
+
+func (backend *Backend) isVServerExists(vserver VServer) bool {
+	for _, v := range backend.VServers {
+		if v.Equals(vserver) {
+			return true
+		}
+	}
+	return false
+}
 
 type Worker struct {
 	MasterIP, HostIP string

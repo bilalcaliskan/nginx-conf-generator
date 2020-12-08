@@ -9,21 +9,23 @@ import (
 	"strings"
 )
 
-var nginxConf NginxConf
-
+var nginxConf = &NginxConf{
+	VServers: nil,
+	Backends: nil,
+}
 
 func main() {
 	kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
 	workerNodeLabel := flag.String("workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
 		"worker nodes, defaults to node-role.kubernetes.io/worker=")
-	// customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
-	//	"selectable services")
-	//templateInputFile := flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
+	customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
+		"selectable services")
+	templateInputFile := flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
+		"path of the template file")
+	// templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
 	//	"path of the template file")
-	//templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
-	//	"path of the template file")
-	// templateOutputFile := flag.String("templateOutputFile", "default", "output path of the template file")
+	templateOutputFile := flag.String("templateOutputFile", "default", "output path of the template file")
 	flag.Parse()
 
 	// TODO: create shared informer for nodes, handle the case that a worker is removed or any worker added to the cluster
@@ -51,13 +53,16 @@ func main() {
 		backend := Backend{
 			MasterIP:  masterIp,
 			Workers:   make([]Worker, 0),
-			NodePorts: make([]int32, 0),
+			VServers: make([]VServer, 0),
 		}
+
+		nginxConf.Backends = append(nginxConf.Backends, backend)
 
 		// run nodeInformer with seperate goroutine
 		go runNodeInformer(&backend, clientSet, *workerNodeLabel)
 
-		// runServiceInformer(*customAnnotation, *templateInputFile, *templateOutputFile, masterIp, workerNodeIps, clientSet)
+		// run serviceInformer with seperate goroutine
+		go runServiceInformer(&backend, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
 	}
 
 	select {}
