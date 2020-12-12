@@ -136,16 +136,16 @@ func addWorker() {
 	
 }*/
 
-func findWorker(workers []Worker, worker Worker) (int, bool) {
+func findWorker(workers []*Worker, worker Worker) (int, bool) {
 	for i, item := range workers {
-		if worker.Equals(&item) {
+		if worker.Equals(item) {
 			return i, true
 		}
 	}
 	return -1, false
 }
 
-func removeWorker(slice []Worker, index int) []Worker {
+func removeWorker(slice []*Worker, index int) []*Worker {
 	return append(slice[:index], slice[index+1:]...)
 }
 

@@ -2,6 +2,9 @@ package main
 
 import (
 	"flag"
+	"log"
+	"time"
+
 	// v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	//"log"
 	"os"
@@ -9,9 +12,9 @@ import (
 	"strings"
 )
 
+var backends []*Backend
 var nginxConf = &NginxConf{
-	VServers: nil,
-	Backends: nil,
+	Backends: backends,
 }
 
 func main() {
@@ -37,32 +40,24 @@ func main() {
 		checkError(err)
 		clientSet, err := getClientSet(restConfig)
 		checkError(err)
-		/*workerNodeList, err := clientSet.CoreV1().Nodes().List(v1.ListOptions{
-			LabelSelector: *workerNodeLabel,
-		})*/
-		checkError(err)
-
-		/*var workerNodeIps []string
-		for _, v := range workerNodeList.Items {
-			workerNodeIps = append(workerNodeIps, v.Status.Addresses[0].Address)
-		}*/
 
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
-		//log.Printf("workerNodeIps on cluster %v = %v\n", masterIp, workerNodeIps)
-
-		backend := Backend{
-			MasterIP:  masterIp,
-			Workers:   make([]Worker, 0),
-			VServers: make([]VServer, 0),
-		}
-
+		backend := newBackend(masterIp, make([]*Worker, 0))
 		nginxConf.Backends = append(nginxConf.Backends, backend)
 
 		// run nodeInformer with seperate goroutine
-		go runNodeInformer(&backend, clientSet, *workerNodeLabel)
+		go runNodeInformer(backend, clientSet, *workerNodeLabel)
 
 		// run serviceInformer with seperate goroutine
-		go runServiceInformer(&backend, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+		go runServiceInformer(backend, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+
+		time.Sleep(4 * time.Second)
+
+		log.Printf("nginxConf = %v\n", *nginxConf)
+		log.Printf("backend.Workers = %v\n", backend.Workers)
+		for _, v := range backend.Workers {
+			log.Printf("nodePorts of worker %v = %v\n", v.HostIP, v.NodePorts)
+		}
 	}
 
 	select {}

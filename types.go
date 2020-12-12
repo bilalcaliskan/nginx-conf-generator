@@ -29,52 +29,48 @@ import (
 	return isNameEquals && isIpEquals && isPortEquals
 }*/
 
+
+
 type NginxConf struct {
-	VServers []VServer
-	Backends []Backend
-}
-
-type VServer struct {
-	Port int32
-}
-
-func (vserver *VServer) Equals(other VServer) bool {
-	return vserver.Port == other.Port
-}
-
-func newVServer(port int32) *VServer {
-	return &VServer{
-		Port:    port,
-	}
+	Backends []*Backend
 }
 
 type Backend struct {
 	MasterIP string
-	Workers []Worker
-	VServers []VServer
+	Workers []*Worker
 }
 
-func newBackend(masterIP string, workers []Worker, vservers []VServer) *Backend {
-	return &Backend{
-		MasterIP: masterIP,
-		Workers: workers,
-		VServers: vservers,
-	}
-}
-
-func (backend *Backend) isVServerExists(vserver VServer) bool {
-	for _, v := range backend.VServers {
-		if v.Equals(vserver) {
-			return true
-		}
-	}
-	return false
+type NodePort struct {
+	MasterIP, HostIP string
+	Port int32
+	WorkerIndex int
 }
 
 type Worker struct {
 	MasterIP, HostIP string
+	NodePorts []NodePort
 	NodeCondition v1.ConditionStatus
 }
+
+func newBackend(masterIP string, workers []*Worker) *Backend {
+	return &Backend{
+		MasterIP: masterIP,
+		Workers: workers,
+	}
+}
+
+
+
+func newNodePort(masterIP, hostIP string, port int32, workerIndex int) *NodePort {
+	return &NodePort{
+		MasterIP: masterIP,
+		HostIP: hostIP,
+		Port:     port,
+		WorkerIndex: workerIndex,
+	}
+}
+
+
 
 func (worker *Worker) Equals(other *Worker) bool {
 	isMasterIPEquals := worker.MasterIP == other.MasterIP
@@ -87,5 +83,6 @@ func newWorker(masterIp, hostIp string, nodeReady v1.ConditionStatus) *Worker {
 		MasterIP: masterIp,
 		HostIP: hostIp,
 		NodeCondition: nodeReady,
+		NodePorts: make([]NodePort, 0),
 	}
 }

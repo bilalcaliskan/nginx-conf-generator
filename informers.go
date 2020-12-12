@@ -1,13 +1,11 @@
 package main
 
 import (
-	"os"
-
-	// "fmt"
-	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"log"
+	"os"
+	"text/template"
 
 	// "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -30,7 +28,7 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 			if ok && nodeReady == "True" {
 				log.Printf("adding node %v to the backend.Workers\n", node.Status.Addresses[0].Address)
 				worker := newWorker(backend.MasterIP, node.Status.Addresses[0].Address, nodeReady)
-				backend.Workers = append(backend.Workers, *worker)
+				backend.Workers = append(backend.Workers, worker)
 				log.Printf("final backend.Workers = %v\n", backend.Workers)
 			}
 		},
@@ -67,7 +65,7 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 					if newWorker.NodeCondition == "True" && newOk {
 						log.Printf("node %v is now healthy and labeled, adding to the backend.Workers slice...\n",
 							*oldWorker)
-						backend.Workers = append(backend.Workers, *newWorker)
+						backend.Workers = append(backend.Workers, newWorker)
 						log.Printf("final backend.Workers = %v\n", backend.Workers)
 					} else {
 						log.Printf("node %v is still unhealthy or unlabelled, skipping...\n", *oldWorker)
@@ -105,11 +103,16 @@ func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, custo
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
-				nodePort := service.Spec.Ports[0].NodePort
 				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
-					nodePort)
+					service.Spec.Ports[0].NodePort)
 
-				vserver := newVServer(nodePort)
+				for i, v := range backend.Workers {
+					nodePort := newNodePort(backend.MasterIP, v.HostIP, service.Spec.Ports[0].NodePort, i)
+					log.Printf("adding NodePort %v to the v.NodePorts\n", nodePort)
+					v.NodePorts = append(v.NodePorts, *nodePort)
+				}
+
+				/*vserver := newVServer(nodePort)
 
 				if !backend.isVServerExists(*vserver) {
 					log.Printf("vserver %v not found in the backend.NodePorts, appending...\n", vserver)
@@ -117,14 +120,15 @@ func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, custo
 					log.Printf("final backend.VServers = %v\n", backend.VServers)
 				} else {
 					log.Printf("vserver %v already found in the backend.VServers, skipping...\n", vserver)
-				}
+				}*/
 
 				// Apply changes to the template
 				tpl := template.Must(template.ParseFiles(templateInputFile))
 				f, err := os.Create(templateOutputFile)
 				checkError(err)
 
-				err = tpl.Execute(f, &nginxConf)
+
+				err = tpl.ExecuteTemplate(f, "main", nginxConf)
 				checkError(err)
 
 				err = f.Close()
