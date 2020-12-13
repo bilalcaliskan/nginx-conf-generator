@@ -1,45 +1,12 @@
-{{define "nodePortServers"}}
-    {{range .}}
-    server {
-        listen {{.Port}};
-        server_name _;
-        location / {
-            proxy_pass http://{{.MasterIP}}_{{.WorkerIndex}};
-        }
-    }
-    {{end}}
-{{end}}
-
-{{define "nodePorts"}}
-    {{range $i, $v := .}}
-    server {{$v.HostIP}}:{{$v.Port}};
-    {{end}}
-{{end}}
-
-{{define "workers"}}
-{{range $i, $v := .}}
-upstream {{$v.MasterIP}}_{{$i}} {
-    {{ template "nodePorts" $v.NodePorts }}
-}
-
-{{ template "nodePortServers" $v.NodePorts }}
-{{end}}
-{{end}}
-
-{{define "backends"}}
-{{range .}}
-{{ template "workers" .Workers }}
-{{end}}
-{{end}}
-
-
-{{range .Backends.Workers.NodePorts}}
-
-{{end}}
-
-
 {{define "main"}}
-{{ template "backends" .Backends }}
+
+{{range .Backends}}
+{{ template "nodePortServer" .NodePorts }}
+
+{{ template "nodePortUpstream" .NodePorts }}
+{{end}}
+
+
 
 server {
     listen 80 default_server;
@@ -53,4 +20,29 @@ server {
         try_files $uri $uri/ =404;
     }
 }
+{{end}}
+
+
+
+{{define "nodePortServer"}}
+{{range .}}
+server {
+    listen {{.Port}};
+    server_name _;
+    location / {
+        proxy_pass http://{{.MasterIP}}_{{.Port}};
+    }
+}
+{{end}}
+{{end}}
+
+{{define "nodePortUpstream"}}
+{{range .}}
+upstream {{.MasterIP}}_{{.Port}} {
+    {{$port := .Port}}
+    {{range .HostIPS}}
+    server {{.}}:{{$port}};
+    {{end}}
+}
+{{end}}
 {{end}}

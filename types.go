@@ -38,17 +38,17 @@ type NginxConf struct {
 type Backend struct {
 	MasterIP string
 	Workers []*Worker
+	NodePorts []*NodePort
 }
 
 type NodePort struct {
-	MasterIP, HostIP string
+	MasterIP string
+	HostIPS []string
 	Port int32
-	WorkerIndex int
 }
 
 type Worker struct {
 	MasterIP, HostIP string
-	NodePorts []NodePort
 	NodeCondition v1.ConditionStatus
 }
 
@@ -61,16 +61,19 @@ func newBackend(masterIP string, workers []*Worker) *Backend {
 
 
 
-func newNodePort(masterIP, hostIP string, port int32, workerIndex int) *NodePort {
+func newNodePort(masterIP string, port int32) *NodePort {
 	return &NodePort{
 		MasterIP: masterIP,
-		HostIP: hostIP,
+		HostIPS: make([]string, 0),
 		Port:     port,
-		WorkerIndex: workerIndex,
 	}
 }
 
-
+func (nodePort *NodePort) Equals(other *NodePort) bool {
+	isMasterIPEquals := nodePort.MasterIP == other.MasterIP
+	isPortEquals := nodePort.Port == other.Port
+	return isMasterIPEquals && isPortEquals
+}
 
 func (worker *Worker) Equals(other *Worker) bool {
 	isMasterIPEquals := worker.MasterIP == other.MasterIP
@@ -83,6 +86,5 @@ func newWorker(masterIp, hostIp string, nodeReady v1.ConditionStatus) *Worker {
 		MasterIP: masterIp,
 		HostIP: hostIp,
 		NodeCondition: nodeReady,
-		NodePorts: make([]NodePort, 0),
 	}
 }

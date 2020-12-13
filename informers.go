@@ -31,6 +31,8 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 				backend.Workers = append(backend.Workers, worker)
 				log.Printf("final backend.Workers = %v\n", backend.Workers)
 			}
+
+			go runServiceInformer(backend, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			oldNode := oldObj.(*v1.Node)
@@ -95,6 +97,7 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 	informerFactory.WaitForCacheSync(wait.NeverStop)
 }
 
+// TODO: decrease cognitive complexity
 func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, customAnnotation, templateInputFile, templateOutputFile string) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
@@ -106,11 +109,31 @@ func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, custo
 				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
 					service.Spec.Ports[0].NodePort)
 
-				for i, v := range backend.Workers {
-					nodePort := newNodePort(backend.MasterIP, v.HostIP, service.Spec.Ports[0].NodePort, i)
-					log.Printf("adding NodePort %v to the v.NodePorts\n", nodePort)
-					v.NodePorts = append(v.NodePorts, *nodePort)
+				nodePort := newNodePort(backend.MasterIP, service.Spec.Ports[0].NodePort)
+				index, found := findNodePort(backend.NodePorts, *nodePort)
+				if found {
+					nodePort = backend.NodePorts[index]
+					for _, v := range backend.Workers {
+						if !containsString(nodePort.HostIPS, v.HostIP) {
+							nodePort.HostIPS = append(nodePort.HostIPS, v.HostIP)
+						}
+					}
+
+					log.Printf("NodePort %v found in the backend.NodePorts, skipping adding...\n", nodePort)
+				} else {
+					for _, v := range backend.Workers {
+						if !containsString(nodePort.HostIPS, v.HostIP) {
+							nodePort.HostIPS = append(nodePort.HostIPS, v.HostIP)
+						}
+					}
+
+					log.Printf("adding NodePort %v to the backend.NodePorts\n", nodePort)
+					backend.NodePorts = append(backend.NodePorts, nodePort)
 				}
+
+
+
+
 
 				/*vserver := newVServer(nodePort)
 
