@@ -16,7 +16,7 @@ import (
 	_ "time"
 )
 
-func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNodeLabel string) {
+func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNodeLabel string) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -26,13 +26,13 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
-				log.Printf("adding node %v to the backend.Workers\n", node.Status.Addresses[0].Address)
-				worker := newWorker(backend.MasterIP, node.Status.Addresses[0].Address, nodeReady)
-				backend.Workers = append(backend.Workers, worker)
-				log.Printf("final backend.Workers = %v\n", backend.Workers)
+				log.Printf("adding node %v to the cluster.Workers\n", node.Status.Addresses[0].Address)
+				worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
+				cluster.Workers = append(cluster.Workers, worker)
+				log.Printf("final cluster.Workers = %v\n", cluster.Workers)
 			}
 
-			go runServiceInformer(backend, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+			go runServiceInformer(cluster, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			oldNode := oldObj.(*v1.Node)
@@ -41,34 +41,34 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 			// there is an update for sure
 			if oldNode.ResourceVersion != newNode.ResourceVersion {
 				_, newOk := newNode.Labels[workerNodeLabel]
-				oldWorker := newWorker(backend.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
-				newWorker := newWorker(backend.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
+				oldWorker := newWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
+				newWorker := newWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
-				oldWorkerIndex, oldWorkerFound := findWorker(backend.Workers, *oldWorker)
+				oldWorkerIndex, oldWorkerFound := findWorker(cluster.Workers, *oldWorker)
 				if oldWorkerFound {
-					// - old node was at the slice backend.Workers:
+					// - old node was at the slice cluster.Workers:
 					//   - new node is no more healthy or new node is no more labeled
-					//     - remove node from backend.Workers
+					//     - remove node from cluster.Workers
 					//   - new node is still healthy and labelled
 					//     - do nothing
 					if newWorker.NodeCondition == "True" && newOk {
 						log.Printf("node %v is still healthy and labelled, skipping...\n", *oldWorker)
 					} else {
-						log.Printf("node %v is not healthy or is not labelled, removing from backend.Workers!\n",
+						log.Printf("node %v is not healthy or is not labelled, removing from cluster.Workers!\n",
 							*oldWorker)
-						backend.Workers = removeWorker(backend.Workers, oldWorkerIndex)
-						log.Printf("final backend.Workers = %v\n", backend.Workers)
+						cluster.Workers = removeWorker(cluster.Workers, oldWorkerIndex)
+						log.Printf("final cluster.Workers = %v\n", cluster.Workers)
 					}
 				} else {
-					// - old node was not at the slice backend.Workers:
+					// - old node was not at the slice cluster.Workers:
 					//   - new node is healthy and node is labelled
-					//     - ensure old node was not at backend.Workers, add new node to backend.Workers.
+					//     - ensure old node was not at cluster.Workers, add new node to cluster.Workers.
 					//   - new node is not healthy or not labelled
 					if newWorker.NodeCondition == "True" && newOk {
-						log.Printf("node %v is now healthy and labeled, adding to the backend.Workers slice...\n",
+						log.Printf("node %v is now healthy and labeled, adding to the cluster.Workers slice...\n",
 							*oldWorker)
-						backend.Workers = append(backend.Workers, newWorker)
-						log.Printf("final backend.Workers = %v\n", backend.Workers)
+						cluster.Workers = append(cluster.Workers, newWorker)
+						log.Printf("final cluster.Workers = %v\n", cluster.Workers)
 					} else {
 						log.Printf("node %v is still unhealthy or unlabelled, skipping...\n", *oldWorker)
 					}
@@ -78,18 +78,18 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 		DeleteFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			worker := Worker{
-				MasterIP: backend.MasterIP,
-				HostIP: node.Status.Addresses[0].Address,
+				MasterIP: cluster.MasterIP,
+				HostIP:   node.Status.Addresses[0].Address,
 			}
 			log.Printf("delete event fetched for worker %v!\n", worker)
-			index, found := findWorker(backend.Workers, worker)
+			index, found := findWorker(cluster.Workers, worker)
 			if found {
-				log.Printf("worker %v found in the backend.Workers, removing...\n", worker)
-				backend.Workers = removeWorker(backend.Workers, index)
-				log.Printf("successfully removed worker %v from backend.Workers slice!\n", worker)
-				log.Printf("final backend.Workers after delete operation = %v\n", backend.Workers)
+				log.Printf("worker %v found in the cluster.Workers, removing...\n", worker)
+				cluster.Workers = removeWorker(cluster.Workers, index)
+				log.Printf("successfully removed worker %v from cluster.Workers slice!\n", worker)
+				log.Printf("final cluster.Workers after delete operation = %v\n", cluster.Workers)
 			} else {
-				log.Printf("worker %v NOT found in the backend.Workers, skipping remove operation!\n", worker)
+				log.Printf("worker %v NOT found in the cluster.Workers, skipping remove operation!\n", worker)
 			}
 		},
 	})
@@ -98,7 +98,7 @@ func runNodeInformer(backend *Backend, clientSet *kubernetes.Clientset, workerNo
 }
 
 // TODO: decrease cognitive complexity
-func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, customAnnotation, templateInputFile, templateOutputFile string) {
+func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, customAnnotation, templateInputFile, templateOutputFile string) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -109,26 +109,28 @@ func runServiceInformer(backend *Backend, clientSet *kubernetes.Clientset, custo
 				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
 					service.Spec.Ports[0].NodePort)
 
-				nodePort := newNodePort(backend.MasterIP, service.Spec.Ports[0].NodePort)
-				index, found := findNodePort(backend.NodePorts, *nodePort)
+				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
+				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
-					nodePort = backend.NodePorts[index]
-					for _, v := range backend.Workers {
-						if !containsString(nodePort.HostIPS, v.HostIP) {
-							nodePort.HostIPS = append(nodePort.HostIPS, v.HostIP)
+					nodePort = cluster.NodePorts[index]
+					for _, v := range cluster.Workers {
+						index, found = findWorker(nodePort.Workers, *v)
+						if !found {
+							nodePort.Workers = append(nodePort.Workers, v)
 						}
 					}
 
 					log.Printf("NodePort %v found in the backend.NodePorts, skipping adding...\n", nodePort)
 				} else {
-					for _, v := range backend.Workers {
-						if !containsString(nodePort.HostIPS, v.HostIP) {
-							nodePort.HostIPS = append(nodePort.HostIPS, v.HostIP)
+					for _, v := range cluster.Workers {
+						index, found = findWorker(nodePort.Workers, *v)
+						if !found {
+							nodePort.Workers = append(nodePort.Workers, v)
 						}
 					}
 
 					log.Printf("adding NodePort %v to the backend.NodePorts\n", nodePort)
-					backend.NodePorts = append(backend.NodePorts, nodePort)
+					cluster.NodePorts = append(cluster.NodePorts, nodePort)
 				}
 
 

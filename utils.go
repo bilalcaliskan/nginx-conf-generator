@@ -62,7 +62,7 @@ func reloadNginx() error {
 	return nil
 }
 
-func removeFromBackendsSlice(slice []Backend, index int) []Backend {
+func removeFromClustersSlice(slice []Cluster, index int) []Cluster {
 	return append(slice[:index], slice[index+1:]...)
 }
 

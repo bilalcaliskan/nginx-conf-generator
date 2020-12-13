@@ -1,6 +1,6 @@
 {{define "main"}}
 
-{{range .Backends}}
+{{range .Clusters}}
 {{ template "nodePortServer" .NodePorts }}
 
 {{ template "nodePortUpstream" .NodePorts }}
@@ -40,8 +40,8 @@ server {
 {{range .}}
 upstream {{.MasterIP}}_{{.Port}} {
     {{$port := .Port}}
-    {{range .HostIPS}}
-    server {{.}}:{{$port}};
+    {{range .Workers}}
+    server {{.HostIP}}:{{$port}};
     {{end}}
 }
 {{end}}

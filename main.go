@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-var backends []*Backend
+var clusters []*Cluster
 var nginxConf = &NginxConf{
-	Backends: backends,
+	Clusters: clusters,
 }
 var templateInputFile *string
 var templateOutputFile *string
@@ -35,21 +35,21 @@ func main() {
 	// TODO: fix the performance-related problems, use more pointers to avoid re-initializing slices etc
 
 	kubeConfigPathArr := strings.Split(*kubeConfigPaths, ",")
-	for _, cluster := range kubeConfigPathArr {
-		restConfig, err := getConfig(cluster)
+	for _, path := range kubeConfigPathArr {
+		restConfig, err := getConfig(path)
 		checkError(err)
 		clientSet, err := getClientSet(restConfig)
 		checkError(err)
 
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
-		backend := newBackend(masterIp, make([]*Worker, 0))
-		nginxConf.Backends = append(nginxConf.Backends, backend)
+		cluster := newCluster(masterIp, make([]*Worker, 0))
+		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 		// run nodeInformer with seperate goroutine
-		go runNodeInformer(backend, clientSet, *workerNodeLabel)
+		go runNodeInformer(cluster, clientSet, *workerNodeLabel)
 
 		// run serviceInformer with seperate goroutine
-		go runServiceInformer(backend, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+		go runServiceInformer(cluster, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
 	}
 
 	select {}

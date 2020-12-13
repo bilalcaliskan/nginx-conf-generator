@@ -4,22 +4,6 @@
 
 
 server {
-    listen 30497;
-    server_name _;
-    location / {
-        proxy_pass http://192.168.99.101_30497;
-    }
-}
-
-server {
-    listen 31429;
-    server_name _;
-    location / {
-        proxy_pass http://192.168.99.101_31429;
-    }
-}
-
-server {
     listen 32444;
     server_name _;
     location / {
@@ -32,6 +16,22 @@ server {
     server_name _;
     location / {
         proxy_pass http://192.168.99.101_32160;
+    }
+}
+
+server {
+    listen 30497;
+    server_name _;
+    location / {
+        proxy_pass http://192.168.99.101_30497;
+    }
+}
+
+server {
+    listen 31429;
+    server_name _;
+    location / {
+        proxy_pass http://192.168.99.101_31429;
     }
 }
 
@@ -52,14 +52,6 @@ server {
 }
 
 server {
-    listen 30145;
-    server_name _;
-    location / {
-        proxy_pass http://192.168.99.101_30145;
-    }
-}
-
-server {
     listen 31436;
     server_name _;
     location / {
@@ -67,27 +59,17 @@ server {
     }
 }
 
-
-
-
-
-upstream 192.168.99.101_30497 {
-    
-    
-    server 192.168.99.101:30497;
-    
-    server 192.168.99.106:30497;
-    
+server {
+    listen 30145;
+    server_name _;
+    location / {
+        proxy_pass http://192.168.99.101_30145;
+    }
 }
 
-upstream 192.168.99.101_31429 {
-    
-    
-    server 192.168.99.101:31429;
-    
-    server 192.168.99.106:31429;
-    
-}
+
+
+
 
 upstream 192.168.99.101_32444 {
     
@@ -104,6 +86,24 @@ upstream 192.168.99.101_32160 {
     server 192.168.99.101:32160;
     
     server 192.168.99.106:32160;
+    
+}
+
+upstream 192.168.99.101_30497 {
+    
+    
+    server 192.168.99.101:30497;
+    
+    server 192.168.99.106:30497;
+    
+}
+
+upstream 192.168.99.101_31429 {
+    
+    
+    server 192.168.99.101:31429;
+    
+    server 192.168.99.106:31429;
     
 }
 
@@ -125,21 +125,21 @@ upstream 192.168.99.101_30565 {
     
 }
 
-upstream 192.168.99.101_30145 {
-    
-    
-    server 192.168.99.101:30145;
-    
-    server 192.168.99.106:30145;
-    
-}
-
 upstream 192.168.99.101_31436 {
     
     
     server 192.168.99.101:31436;
     
     server 192.168.99.106:31436;
+    
+}
+
+upstream 192.168.99.101_30145 {
+    
+    
+    server 192.168.99.101:30145;
+    
+    server 192.168.99.106:30145;
     
 }
 
