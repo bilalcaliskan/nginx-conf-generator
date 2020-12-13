@@ -46,10 +46,10 @@ func main() {
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 		// run nodeInformer with seperate goroutine
-		go runNodeInformer(cluster, clientSet, *workerNodeLabel)
+		runNodeInformer(cluster, clientSet, *workerNodeLabel)
 
 		// run serviceInformer with seperate goroutine
-		go runServiceInformer(cluster, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+		runServiceInformer(cluster, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
 	}
 
 	select {}

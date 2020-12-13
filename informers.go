@@ -97,7 +97,6 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 	informerFactory.WaitForCacheSync(wait.NeverStop)
 }
 
-// TODO: decrease cognitive complexity
 func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, customAnnotation, templateInputFile, templateOutputFile string) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
@@ -113,39 +112,17 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
 					nodePort = cluster.NodePorts[index]
-					for _, v := range cluster.Workers {
-						index, found = findWorker(nodePort.Workers, *v)
-						if !found {
-							nodePort.Workers = append(nodePort.Workers, v)
-						}
-					}
-
 					log.Printf("NodePort %v found in the backend.NodePorts, skipping adding...\n", nodePort)
 				} else {
-					for _, v := range cluster.Workers {
-						index, found = findWorker(nodePort.Workers, *v)
-						if !found {
-							nodePort.Workers = append(nodePort.Workers, v)
-						}
-					}
-
-					log.Printf("adding NodePort %v to the backend.NodePorts\n", nodePort)
 					cluster.NodePorts = append(cluster.NodePorts, nodePort)
 				}
 
-
-
-
-
-				/*vserver := newVServer(nodePort)
-
-				if !backend.isVServerExists(*vserver) {
-					log.Printf("vserver %v not found in the backend.NodePorts, appending...\n", vserver)
-					backend.VServers = append(backend.VServers, *vserver)
-					log.Printf("final backend.VServers = %v\n", backend.VServers)
-				} else {
-					log.Printf("vserver %v already found in the backend.VServers, skipping...\n", vserver)
-				}*/
+				for _, v := range cluster.Workers {
+					_, found := findWorker(nodePort.Workers, *v)
+					if !found {
+						nodePort.Workers = append(nodePort.Workers, v)
+					}
+				}
 
 				// Apply changes to the template
 				tpl := template.Must(template.ParseFiles(templateInputFile))
@@ -158,40 +135,38 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 
 				err = f.Close()
 				checkError(err)
-
-				//err = reloadNginx()
-				//checkError(err)
-
-				/*backend := newBackend(fmt.Sprintf("%s_%d", masterIp, nodePort), masterIp, nodePort)
-					for i, v := range workerNodeIpAddr {
-						worker := newWorker(int32(i), nodePort, v)
-						log.Printf("appending worker %v:%v to backend %v\n", v, nodePort, backend.Name)
-						backend.Workers = append(backend.Workers, *worker)
-					}
-					log.Printf("Adding backend %v to the &nginxConf.Backends\n", backend)
-					addBackend(&nginxConf.Backends, *backend)
-
-					vserver := newVServer(backend.Port, *backend)
-					log.Printf("Adding vserver %v to the &nginxConf.VServers\n", vserver)
-					addVserver(&nginxConf.VServers, *vserver)
-
-					// Apply changes to the template
-					tpl := template.Must(template.ParseFiles(templateInputFile))
-					f, err := os.Create(templateOutputFile)
-					checkError(err)
-
-					err = tpl.Execute(f, &nginxConf)
-					checkError(err)
-
-					err = f.Close()
-					checkError(err)
-
-					//err = reloadNginx()
-					//checkError(err)
-				}*/
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			/*
+			- Old service was labelled and NodePort type:
+				- check if new service also labelled and NodePort type
+					- if yes, check if ports are the same
+						- if yes, do nothing
+						- if no, update old service with the new service
+					- if no, remove old service from slice
+
+			- Old service was not labelled or not a NodePort type service:
+				- ensure that slice does not contain that old service
+					- if yes, remove old service from slice
+					- if no, do nothing
+				- check if new service labelled and NodePort type:
+					- if yes, add to the slice
+					- if no, do nothing
+			*/
+
+
+			// - Old service was labelled and NodePort type:
+			//   - check if new service also labelled and NodePort type:
+			//     - remove from slice if not
+			//     - check if ports are the same, if yes, do nothing, if no, update old service with the new service
+
+			// - Old service was not labelled or not a NodePort type service:
+			//   - ensure that slice does not contain that old service
+			//   - check if new service labelled and NodePort type:
+			//     - if yes, add to the slice, if no, do nothing
+
+
 			/*oldService := oldObj.(*v1.Service)
 			newService := newObj.(*v1.Service)
 			// TODO: Handle the case that annotation is removed from the new service
@@ -241,40 +216,35 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 		},
 		DeleteFunc: func(obj interface{}) {
 			/*
+			- Check if deleted service was labelled and NodePort type
+				- If yes, remove it from slice
+				- If no, do nothing
+			 */
+
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
-				nodePort := service.Spec.Ports[0].NodePort
 				log.Printf("service %v is deleted on namespace %v!\n", service.Name, service.Namespace)
-
-				// Create backend struct with nested K8sService
-				backend := newBackend(fmt.Sprintf("%s_%d", masterIp, nodePort), masterIp, nodePort)
-				for i, v := range workerNodeIpAddr {
-					worker := newWorker(int32(i), nodePort, v)
-					backend.Workers = append(backend.Workers, *worker)
-				}
-				index, found := findBackend(nginxConf.Backends, *backend)
+				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
+				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
-					nginxConf.Backends = removeFromBackendsSlice(nginxConf.Backends, index)
+					log.Printf("deleted service %v found on the cluster.NodePorts slice, removing!\n", service.Name)
+					cluster.NodePorts = removeNodePort(cluster.NodePorts, index)
+					log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
 				}
+			}
 
-				vserver := newVServer(nodePort, *backend)
-				index, found = findVserver(nginxConf.VServers, *vserver)
-				if found {
-					nginxConf.VServers = removeFromVServersSlice(nginxConf.VServers, index)
-				}
-				// Apply changes to the template
-				tpl := template.Must(template.ParseFiles(templateInputFile))
-				f, err := os.Create(templateOutputFile)
-				checkError(err)
-				err = tpl.Execute(f, &nginxConf)
-				checkError(err)
-				err = f.Close()
-				checkError(err)
+			// Apply changes to the template
+			tpl := template.Must(template.ParseFiles(templateInputFile))
+			f, err := os.Create(templateOutputFile)
+			checkError(err)
+			err = tpl.ExecuteTemplate(f, "main", nginxConf)
+			checkError(err)
+			err = f.Close()
+			checkError(err)
 
-				// err = reloadNginx()
-				// checkError(err)
-			}*/
+			// err = reloadNginx()
+			// checkError(err)
 		},
 	})
 	informerFactory.Start(wait.NeverStop)

@@ -154,16 +154,11 @@ func findNodePort(nodePorts []*NodePort, nodePort NodePort) (int, bool) {
 	return -1, false
 }
 
-func containsString(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
+func removeWorker(slice []*Worker, index int) []*Worker {
+	return append(slice[:index], slice[index+1:]...)
 }
 
-func removeWorker(slice []*Worker, index int) []*Worker {
+func removeNodePort(slice []*NodePort, index int) []*NodePort {
 	return append(slice[:index], slice[index+1:]...)
 }
 
