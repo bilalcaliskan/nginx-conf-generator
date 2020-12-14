@@ -17,6 +17,7 @@ var (
 	templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel *string
 )
 
+
 func main() {
 	kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")

@@ -46,6 +46,7 @@ func checkError(err error) {
 	return -1, false
 }
 
+// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 func findBackend(backends []Backend, backend Backend) (int, bool) {
 	for i, item := range backends {
 		if backend.Equals(&item) {
