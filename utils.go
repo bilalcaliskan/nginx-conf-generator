@@ -132,9 +132,31 @@ func addVserver(vservers *[]VServer, vserver VServer) {
 
 // TODO: Implement method
 // TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
-func addWorker() {
-	
-}*/
+*/
+
+// TODO: Use that function when neccessary
+func addWorker(slice []*Worker, worker *Worker) {
+	_, found := findWorker(slice, *worker)
+	if !found {
+		slice = append(slice, worker)
+	}
+}
+
+// TODO: Use that function when neccessary
+func addNodePort(cluster *Cluster, oldNodePort []*NodePort, newNodePort *NodePort) {
+	cluster.NodePorts = append(cluster.NodePorts, newNodePort)
+	for _, v := range cluster.Workers {
+		_, found := findWorker(newNodePort.Workers, *v)
+		if !found {
+			newNodePort.Workers = append(newNodePort.Workers, v)
+		}
+	}
+}
+
+// TODO: Implement
+func updateNodePortsSlice(nodePorts []*NodePort, oldNodePort *NodePort, newNodePort *NodePort) {
+
+}
 
 func findWorker(workers []*Worker, worker Worker) (int, bool) {
 	for i, item := range workers {

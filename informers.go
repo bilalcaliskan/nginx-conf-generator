@@ -138,81 +138,90 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			/*
-			- Old service was labelled and NodePort type:
-				- check if new service also labelled and NodePort type
-					- if yes, check if ports are the same
-						- if yes, do nothing
-						- if no, update old service with the new service
-					- if no, remove old service from slice
-
-			- Old service was not labelled or not a NodePort type service:
-				- ensure that slice does not contain that old service
-					- if yes, remove old service from slice
-					- if no, do nothing
-				- check if new service labelled and NodePort type:
-					- if yes, add to the slice
-					- if no, do nothing
-			*/
-
-
-			// - Old service was labelled and NodePort type:
-			//   - check if new service also labelled and NodePort type:
-			//     - remove from slice if not
-			//     - check if ports are the same, if yes, do nothing, if no, update old service with the new service
-
-			// - Old service was not labelled or not a NodePort type service:
-			//   - ensure that slice does not contain that old service
-			//   - check if new service labelled and NodePort type:
-			//     - if yes, add to the slice, if no, do nothing
-
-
-			/*oldService := oldObj.(*v1.Service)
+			oldService := oldObj.(*v1.Service)
 			newService := newObj.(*v1.Service)
-			// TODO: Handle the case that annotation is removed from the new service
-			if oldService.Spec.Type == "NodePort" && oldService.ResourceVersion != newService.ResourceVersion {
-				oldNodePort := oldService.Spec.Ports[0].NodePort
-				newNodePort := newService.Spec.Ports[0].NodePort
-				log.Printf("there is an update on the nodePort of the service %v on namespace %v!\n",
-					oldService.Name, oldService.Namespace)
-				oldBackend := newBackend(fmt.Sprintf("%s_%d", masterIp, oldNodePort), masterIp, oldNodePort)
-				newBackend := newBackend(fmt.Sprintf("%s_%d", masterIp, newNodePort), masterIp, newNodePort)
-				for i, v := range workerNodeIpAddr {
-					oldBackend.Workers = append(oldBackend.Workers, *newWorker(int32(i), oldNodePort, v))
-					newBackend.Workers = append(newBackend.Workers, *newWorker(int32(i), newNodePort, v))
+			// There is an actual update on the service
+			if oldService.ResourceVersion != newService.ResourceVersion {
+				/*
+				- Old service was labelled and NodePort type:
+					- check if new service also labelled and NodePort type
+						- if yes, check if ports are the same
+							- if yes, do nothing
+							- if no, update old service with the new service
+						- if no, remove old service from slice
+				*/
+				_, oldOk := oldService.Annotations[customAnnotation]
+				_, newOk := oldService.Annotations[customAnnotation]
+				if oldOk && oldService.Spec.Type == "NodePort" {
+					if newOk && newService.Spec.Type == "NodePort" {
+						oldNodePort := oldService.Spec.Ports[0].NodePort
+						newNodePort := newService.Spec.Ports[0].NodePort
+						if oldNodePort != newNodePort {
+							// TODO: Update the old service with the new service
+						} else {
+							log.Println("ports are the same on the updated service, nothing to do!")
+						}
+					} else {
+						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
+						oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
+						if oldFound {
+							log.Printf("removing service %v from cluster.NodePorts because it is no more " +
+								"NodePort type or labelled!\n", oldService.Name)
+							cluster.NodePorts = removeNodePort(cluster.NodePorts, oldIndex)
+							log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
+						}
+					}
+				} else {
+					/*
+					- Old service was not labelled or not a NodePort type service:
+						- ensure that slice does not contain that old service
+							- if yes, remove old service from slice
+							- if no, do nothing
+						- check if new service labelled and NodePort type:
+							- if yes, add to the slice
+							- if no, do nothing
+					*/
+					oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
+					oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
+					if oldFound {
+						log.Printf("removing service %v from cluster.NodePorts because it is accidentally added!\n", oldService.Name)
+						cluster.NodePorts = removeNodePort(cluster.NodePorts, oldIndex)
+						log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
+					}
+
+					if newOk && newService.Spec.Type == "NodePort" {
+						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
+						_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
+						if !newFound {
+							log.Printf("adding service %v to cluster.NodePorts because it is labelled and NodePort type!\n",
+								newService.Name)
+							cluster.NodePorts = append(cluster.NodePorts, newNodePort)
+							for _, v := range cluster.Workers {
+								_, found := findWorker(newNodePort.Workers, *v)
+								if !found {
+									newNodePort.Workers = append(newNodePort.Workers, v)
+								}
+							}
+						} else {
+							log.Printf("service %v already found in cluster.NodePorts, this is buggy, inspect! " +
+								"skipping adding operation!\n", newService.Name)
+						}
+
+					}
 				}
 
-				oldVserver := newVServer(oldBackend.Port, *oldBackend)
-				newVserver := newVServer(newBackend.Port, *newBackend)
-				// Appending to the slices if annotation is found, removing if not found
-				_, ok := newService.Annotations[customAnnotation]
-				if ok {
-					updateBackendsSlice(&nginxConf.Backends, *oldBackend, *newBackend)
-					updateVServersSlice(&nginxConf.VServers, *oldVserver, *newVserver)
-				} else {
-					oldIndex, oldFound := findBackend(nginxConf.Backends, *oldBackend)
-					if oldFound {
-						nginxConf.Backends = removeFromBackendsSlice(nginxConf.Backends, oldIndex)
-						nginxConf.VServers = removeFromVServersSlice(nginxConf.VServers, oldIndex)
-					}
-					newIndex, newFound := findBackend(nginxConf.Backends, *newBackend)
-					if newFound {
-						nginxConf.Backends = removeFromBackendsSlice(nginxConf.Backends, newIndex)
-						nginxConf.VServers = removeFromVServersSlice(nginxConf.VServers, newIndex)
-					}
-				}
 				// Apply changes to the template
 				tpl := template.Must(template.ParseFiles(templateInputFile))
 				f, err := os.Create(templateOutputFile)
 				checkError(err)
-				err = tpl.Execute(f, &nginxConf)
+				err = tpl.ExecuteTemplate(f, "main", nginxConf)
 				checkError(err)
 				err = f.Close()
 				checkError(err)
 
 				// err = reloadNginx()
 				// checkError(err)
-			}*/
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			/*
