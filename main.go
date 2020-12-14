@@ -27,13 +27,15 @@ func main() {
 		"selectable services")
 	templateInputFile = flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
 		"path of the template file")
-	// templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
+	// templateOutputFile = flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
 	//	"path of the template file")
 	templateOutputFile = flag.String("templateOutputFile", "default", "output path of the template file")
 	flag.Parse()
 
-	// TODO: create shared informer for nodes, handle the case that a worker is removed or any worker added to the cluster
-	// TODO: fix the performance-related problems, use more pointers to avoid re-initializing slices etc
+	// TODO: Fix the performance-related problems, use more pointers to avoid re-initializing slices etc
+	// TODO: Refactor neccessary parts
+	// TODO: Test multi-cluster
+	// TODO: Unit testing!
 
 	kubeConfigPathArr := strings.Split(*kubeConfigPaths, ",")
 	for _, path := range kubeConfigPathArr {

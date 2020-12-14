@@ -37,25 +37,6 @@ func checkError(err error) {
 	}
 }
 
-/*func findVserver(vservers []VServer, vserver VServer) (int, bool) {
-	for i, item := range vservers {
-		if vserver.Equals(&item) {
-			return i, true
-		}
-	}
-	return -1, false
-}
-
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
-func findBackend(backends []Backend, backend Backend) (int, bool) {
-	for i, item := range backends {
-		if backend.Equals(&item) {
-			return i, true
-		}
-	}
-	return -1, false
-}*/
-
 func reloadNginx() error {
 	cmd := exec.Command("nginx", "-s", "reload")
 	err := cmd.Run()
@@ -64,75 +45,6 @@ func reloadNginx() error {
 	}
 	return nil
 }
-
-func removeFromClustersSlice(slice []Cluster, index int) []Cluster {
-	return append(slice[:index], slice[index+1:]...)
-}
-
-// TODO: refactor the function
-/*func updateBackendsSlice(slice *[]Backend, oldBackend Backend, newBackend Backend) {
-	oldIndex, oldFound := findBackend(*slice, oldBackend)
-	if oldFound {
-		log.Printf("update operation is starting on the nginxConf.Backends slice...%v\n", slice)
-		log.Printf("removing backend %v from nginxConf.Backends slice!\n", oldBackend)
-		*slice = removeFromBackendsSlice(*slice, oldIndex)
-
-		_, newFound := findBackend(*slice, newBackend)
-		if !newFound {
-			log.Printf("adding backend %v to nginxConf.Backends slice!\n", newBackend)
-			*slice = append(*slice, newBackend)
-		} else {
-			log.Printf("new backend %v already found in the nginxConf.Backends slice, skipping insertion...\n", newBackend)
-		}
-	} else {
-		log.Printf("old backend %v not found in the nginxConf.Backends slice, skipping insertion, instead adding the new one %v...\n",
-			oldBackend, newBackend)
-		*slice = append(*slice, newBackend)
-	}
-	log.Printf("final nginxConf.Backends slice after update operation = %v\n", slice)
-}
-
-func removeFromVServersSlice(slice []VServer, index int) []VServer {
-	return append(slice[:index], slice[index+1:]...)
-}
-
-// TODO: refactor the function
-func updateVServersSlice(slice *[]VServer, oldVserver VServer, newVserver VServer) {
-	oldIndex, oldFound := findVserver(*slice, oldVserver)
-	if oldFound {
-		log.Printf("update operation is starting on the nginxConf.VServers slice...%v\n", slice)
-		log.Printf("removing backend %v from nginxConf.VServers slice!\n", oldVserver)
-		*slice = removeFromVServersSlice(*slice, oldIndex)
-
-		_, newFound := findVserver(*slice, newVserver)
-		if !newFound {
-			log.Printf("adding vserver %v to nginxConf.VServers slice!\n", newVserver)
-			*slice = append(*slice, newVserver)
-		} else {
-			log.Printf("new vserver %v already found in the nginxConf.VServers slice, skipping insertion...\n", newVserver)
-		}
-	} else {
-		log.Printf("old vserver %v not found in the nginxConf.VServers slice, skipping insertion, instead adding the new one %v...\n",
-			oldVserver, newVserver)
-		*slice = append(*slice, newVserver)
-	}
-	log.Printf("final nginxConf.VServers slice after update operation = %v\n", slice)
-}
-
-func addBackend(backends *[]Backend, backend Backend) {
-	_, found := findBackend(*backends, backend)
-	if !found {
-		*backends = append(*backends, backend)
-	}
-}
-
-func addVserver(vservers *[]VServer, vserver VServer) {
-	_, found := findVserver(*vservers, vserver)
-	if !found {
-		*vservers = append(*vservers, vserver)
-	}
-}
-*/
 
 func addWorker(slice *[]*Worker, worker *Worker) {
 	_, found := findWorker(*slice, *worker)

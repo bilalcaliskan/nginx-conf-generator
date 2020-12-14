@@ -36,8 +36,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 				// Apply changes to the template
 				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-				// err = reloadNginx()
-				// checkError(err)
+				/*err := reloadNginx()
+				checkError(err)*/
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -71,8 +71,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 						// Apply changes to the template
 						renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-						// err = reloadNginx()
-						// checkError(err)
+						/*err := reloadNginx()
+						checkError(err)*/
 					}
 				} else {
 					// - old node was not at the slice cluster.Workers:
@@ -92,8 +92,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 						// Apply changes to the template
 						renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-						// err = reloadNginx()
-						// checkError(err)
+						/*err := reloadNginx()
+						checkError(err)*/
 					} else {
 						log.Printf("node %v is still unhealthy or unlabelled, skipping...\n", *oldWorker)
 					}
@@ -119,8 +119,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 				// Apply changes to the template
 				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-				// err = reloadNginx()
-				// checkError(err)
+				/*err := reloadNginx()
+				checkError(err)*/
 			} else {
 				log.Printf("worker %v NOT found in the cluster.Workers, skipping remove operation!\n", worker)
 			}
@@ -150,14 +150,13 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 					addNodePort(&cluster.NodePorts, nodePort)
 				}
 
-				// TODO: Add cluster.Workers to newly created NodePort and render the template again (TEST)
 				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
 				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-				// err = reloadNginx()
-				// checkError(err)
+				/*err := reloadNginx()
+				checkError(err)*/
 			} else {
 				log.Printf("service %v on namespace %v is not annotated or NodePort type!\n", service.Name,
 					service.Spec.Type)
@@ -224,7 +223,6 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 							log.Printf("adding service %v to cluster.NodePorts because it is labelled and NodePort type!\n",
 								newService.Name)
 							addNodePort(&cluster.NodePorts, newNodePort)
-							// TODO: Add cluster.Workers to newly created NodePort (TEST)
 							addWorkersToNodePort(cluster.Workers, newNodePort)
 						} else {
 							log.Printf("service %v already found in cluster.NodePorts, this is buggy, inspect! " +
@@ -237,8 +235,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 				// Apply changes to the template
 				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-				// err = reloadNginx()
-				// checkError(err)
+				/*err := reloadNginx()
+				checkError(err)*/
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -264,8 +262,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 			// Apply changes to the template
 			renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-			// err = reloadNginx()
-			// checkError(err)
+			/*err := reloadNginx()
+			checkError(err)*/
 		},
 	})
 	informerFactory.Start(wait.NeverStop)
