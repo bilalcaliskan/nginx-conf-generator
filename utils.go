@@ -37,6 +37,7 @@ func checkError(err error) {
 	}
 }
 
+// TODO: uncomment calling lines that function
 func reloadNginx() error {
 	cmd := exec.Command("nginx", "-s", "reload")
 	err := cmd.Run()
