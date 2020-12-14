@@ -9,18 +9,18 @@ import (
 	"strings"
 )
 
-var clusters []*Cluster
-var nginxConf = &NginxConf{
-	Clusters: clusters,
-}
-var templateInputFile *string
-var templateOutputFile *string
-var customAnnotation *string
+var (
+	clusters []*Cluster
+	nginxConf = &NginxConf{
+		Clusters: clusters,
+	}
+	templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel *string
+)
 
 func main() {
 	kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
-	workerNodeLabel := flag.String("workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
+	workerNodeLabel = flag.String("workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
 		"worker nodes, defaults to node-role.kubernetes.io/worker=")
 	customAnnotation = flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
@@ -46,10 +46,10 @@ func main() {
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 		// run nodeInformer with seperate goroutine
-		runNodeInformer(cluster, clientSet, *workerNodeLabel)
+		runNodeInformer(cluster, clientSet)
 
 		// run serviceInformer with seperate goroutine
-		runServiceInformer(cluster, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+		runServiceInformer(cluster, clientSet)
 	}
 
 	select {}

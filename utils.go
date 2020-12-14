@@ -1,11 +1,13 @@
 package main
 
 import (
+	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"log"
+	"os"
 	"os/exec"
 )
 
@@ -129,33 +131,47 @@ func addVserver(vservers *[]VServer, vserver VServer) {
 		*vservers = append(*vservers, vserver)
 	}
 }
-
-// TODO: Implement method
-// TODO: That function can be made generic for Backend, VServer etc? Single function for all slice types?
 */
 
-// TODO: Use that function when neccessary
-func addWorker(slice []*Worker, worker *Worker) {
-	_, found := findWorker(slice, *worker)
+func addWorker(slice *[]*Worker, worker *Worker) {
+	_, found := findWorker(*slice, *worker)
 	if !found {
-		slice = append(slice, worker)
+		*slice = append(*slice, worker)
 	}
 }
 
-// TODO: Use that function when neccessary
-func addNodePort(cluster *Cluster, oldNodePort []*NodePort, newNodePort *NodePort) {
-	cluster.NodePorts = append(cluster.NodePorts, newNodePort)
-	for _, v := range cluster.Workers {
-		_, found := findWorker(newNodePort.Workers, *v)
+func addNodePort(nodePorts *[]*NodePort, nodePort *NodePort) {
+	_, found := findNodePort(*nodePorts, *nodePort)
+	if !found {
+		*nodePorts = append(*nodePorts, nodePort)
+	}
+}
+
+func addWorkersToNodePort(workers []*Worker, nodePort *NodePort) {
+	for _, v := range workers {
+		_, found := findWorker(nodePort.Workers, *v)
 		if !found {
-			newNodePort.Workers = append(newNodePort.Workers, v)
+			addWorker(&nodePort.Workers, v)
 		}
 	}
 }
 
-// TODO: Implement
-func updateNodePortsSlice(nodePorts []*NodePort, oldNodePort *NodePort, newNodePort *NodePort) {
+func addWorkerToNodePorts(nodePorts []*NodePort, worker *Worker) {
+	for _, v := range nodePorts {
+		_, found := findWorker(v.Workers, *worker)
+		if !found {
+			addWorker(&v.Workers, worker)
+		}
+	}
+}
 
+func removeWorkerFromNodePorts(nodePorts *[]*NodePort, worker *Worker) {
+	for _, v := range *nodePorts {
+		index, found := findWorker(v.Workers, *worker)
+		if found {
+			removeWorker(&v.Workers, index)
+		}
+	}
 }
 
 func findWorker(workers []*Worker, worker Worker) (int, bool) {
@@ -176,12 +192,12 @@ func findNodePort(nodePorts []*NodePort, nodePort NodePort) (int, bool) {
 	return -1, false
 }
 
-func removeWorker(slice []*Worker, index int) []*Worker {
-	return append(slice[:index], slice[index+1:]...)
+func removeWorker(workers *[]*Worker, index int) {
+	*workers = append((*workers)[:index], (*workers)[index+1:]...)
 }
 
-func removeNodePort(slice []*NodePort, index int) []*NodePort {
-	return append(slice[:index], slice[index+1:]...)
+func removeNodePort(nodePorts *[]*NodePort, index int) {
+	*nodePorts = append((*nodePorts)[:index], (*nodePorts)[index+1:]...)
 }
 
 func isNodeReady(node *v1.Node) v1.ConditionStatus {
@@ -191,4 +207,24 @@ func isNodeReady(node *v1.Node) v1.ConditionStatus {
 		}
 	}
 	return "False"
+}
+
+func updateNodePort(nodePorts *[]*NodePort, workers []*Worker, oldNodePort *NodePort, newNodePort *NodePort) {
+	oldIndex, oldFound := findNodePort(*nodePorts, *oldNodePort)
+	if oldFound {
+		removeNodePort(nodePorts, oldIndex)
+	}
+	addWorkersToNodePort(workers, newNodePort)
+	addNodePort(nodePorts, newNodePort)
+}
+
+func renderTemplate(templateInputFile, templateOutputFile string, data interface{}) {
+	// Apply changes to the template
+	tpl := template.Must(template.ParseFiles(templateInputFile))
+	f, err := os.Create(templateOutputFile)
+	checkError(err)
+	err = tpl.ExecuteTemplate(f, "main", data)
+	checkError(err)
+	err = f.Close()
+	checkError(err)
 }

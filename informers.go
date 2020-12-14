@@ -4,9 +4,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"log"
-	"os"
-	"text/template"
-
 	// "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -16,23 +13,32 @@ import (
 	_ "time"
 )
 
-func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNodeLabel string) {
+func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
-			_, ok := node.Labels[workerNodeLabel]
+			_, ok := node.Labels[*workerNodeLabel]
 			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
 				log.Printf("adding node %v to the cluster.Workers\n", node.Status.Addresses[0].Address)
 				worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
-				cluster.Workers = append(cluster.Workers, worker)
-				log.Printf("final cluster.Workers = %v\n", cluster.Workers)
-			}
 
-			go runServiceInformer(cluster, clientSet, *customAnnotation, *templateInputFile, *templateOutputFile)
+				// add worker to cluster.Workers slice
+				addWorker(&cluster.Workers, worker)
+				log.Printf("final cluster.Workers = %v\n", cluster.Workers)
+
+				// add worker to each NodePort.Workers in the cluster.NodePorts slice
+				addWorkerToNodePorts(cluster.NodePorts, worker)
+
+				// Apply changes to the template
+				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+
+				// err = reloadNginx()
+				// checkError(err)
+			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			oldNode := oldObj.(*v1.Node)
@@ -40,7 +46,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 
 			// there is an update for sure
 			if oldNode.ResourceVersion != newNode.ResourceVersion {
-				_, newOk := newNode.Labels[workerNodeLabel]
+				_, newOk := newNode.Labels[*workerNodeLabel]
 				oldWorker := newWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
 				newWorker := newWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
@@ -56,8 +62,17 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 					} else {
 						log.Printf("node %v is not healthy or is not labelled, removing from cluster.Workers!\n",
 							*oldWorker)
-						cluster.Workers = removeWorker(cluster.Workers, oldWorkerIndex)
+						removeWorker(&cluster.Workers, oldWorkerIndex)
 						log.Printf("final cluster.Workers = %v\n", cluster.Workers)
+
+						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
+						log.Printf("successfully removed worker %v from each NodePort in the cluster.NodePorts\n", oldWorker)
+
+						// Apply changes to the template
+						renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+
+						// err = reloadNginx()
+						// checkError(err)
 					}
 				} else {
 					// - old node was not at the slice cluster.Workers:
@@ -65,10 +80,20 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 					//     - ensure old node was not at cluster.Workers, add new node to cluster.Workers.
 					//   - new node is not healthy or not labelled
 					if newWorker.NodeCondition == "True" && newOk {
+						// add newWorker to cluster.Workers slice
 						log.Printf("node %v is now healthy and labeled, adding to the cluster.Workers slice...\n",
 							*oldWorker)
-						cluster.Workers = append(cluster.Workers, newWorker)
+						addWorker(&cluster.Workers, newWorker)
 						log.Printf("final cluster.Workers = %v\n", cluster.Workers)
+
+						// add newWorker to each NodePort.Workers in the cluster.NodePorts slice
+						addWorkerToNodePorts(cluster.NodePorts, newWorker)
+
+						// Apply changes to the template
+						renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+
+						// err = reloadNginx()
+						// checkError(err)
 					} else {
 						log.Printf("node %v is still unhealthy or unlabelled, skipping...\n", *oldWorker)
 					}
@@ -77,17 +102,25 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 		},
 		DeleteFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
-			worker := Worker{
-				MasterIP: cluster.MasterIP,
-				HostIP:   node.Status.Addresses[0].Address,
-			}
+			nodeReady := isNodeReady(node)
+			worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 			log.Printf("delete event fetched for worker %v!\n", worker)
-			index, found := findWorker(cluster.Workers, worker)
+			index, found := findWorker(cluster.Workers, *worker)
 			if found {
 				log.Printf("worker %v found in the cluster.Workers, removing...\n", worker)
-				cluster.Workers = removeWorker(cluster.Workers, index)
+				removeWorker(&cluster.Workers, index)
 				log.Printf("successfully removed worker %v from cluster.Workers slice!\n", worker)
 				log.Printf("final cluster.Workers after delete operation = %v\n", cluster.Workers)
+
+				removeWorkerFromNodePorts(&cluster.NodePorts, worker)
+				log.Printf("successfully removed worker %v from each NodePort in the cluster.NodePorts\n", worker)
+				log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
+
+				// Apply changes to the template
+				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+
+				// err = reloadNginx()
+				// checkError(err)
 			} else {
 				log.Printf("worker %v NOT found in the cluster.Workers, skipping remove operation!\n", worker)
 			}
@@ -97,13 +130,13 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 	informerFactory.WaitForCacheSync(wait.NeverStop)
 }
 
-func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, customAnnotation, templateInputFile, templateOutputFile string) {
+func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[customAnnotation]
+			_, ok := service.Annotations[*customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
 				log.Printf("service %v is added on namespace %v with nodeport %v!\n", service.Name, service.Namespace,
 					service.Spec.Ports[0].NodePort)
@@ -114,27 +147,20 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 					nodePort = cluster.NodePorts[index]
 					log.Printf("NodePort %v found in the backend.NodePorts, skipping adding...\n", nodePort)
 				} else {
-					cluster.NodePorts = append(cluster.NodePorts, nodePort)
+					addNodePort(&cluster.NodePorts, nodePort)
 				}
 
-				for _, v := range cluster.Workers {
-					_, found := findWorker(nodePort.Workers, *v)
-					if !found {
-						nodePort.Workers = append(nodePort.Workers, v)
-					}
-				}
+				// TODO: Add cluster.Workers to newly created NodePort and render the template again (TEST)
+				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
-				tpl := template.Must(template.ParseFiles(templateInputFile))
-				f, err := os.Create(templateOutputFile)
-				checkError(err)
+				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-
-				err = tpl.ExecuteTemplate(f, "main", nginxConf)
-				checkError(err)
-
-				err = f.Close()
-				checkError(err)
+				// err = reloadNginx()
+				// checkError(err)
+			} else {
+				log.Printf("service %v on namespace %v is not annotated or NodePort type!\n", service.Name,
+					service.Spec.Type)
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -150,16 +176,18 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 							- if no, update old service with the new service
 						- if no, remove old service from slice
 				*/
-				_, oldOk := oldService.Annotations[customAnnotation]
-				_, newOk := oldService.Annotations[customAnnotation]
+				log.Printf("service %v is updated on namespace %v!\n", oldService.Name, oldService.Namespace)
+				_, oldOk := oldService.Annotations[*customAnnotation]
+				_, newOk := newService.Annotations[*customAnnotation]
 				if oldOk && oldService.Spec.Type == "NodePort" {
 					if newOk && newService.Spec.Type == "NodePort" {
-						oldNodePort := oldService.Spec.Ports[0].NodePort
-						newNodePort := newService.Spec.Ports[0].NodePort
-						if oldNodePort != newNodePort {
-							// TODO: Update the old service with the new service
+						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
+						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
+						if !oldNodePort.Equals(newNodePort) {
+							updateNodePort(&cluster.NodePorts, cluster.Workers, oldNodePort, newNodePort)
+							log.Printf("final cluster.NodePorts after update operation = %v\n", cluster.NodePorts)
 						} else {
-							log.Println("ports are the same on the updated service, nothing to do!")
+							log.Println("NodePort objects are the same on the updated service, nothing to do!")
 						}
 					} else {
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
@@ -167,7 +195,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 						if oldFound {
 							log.Printf("removing service %v from cluster.NodePorts because it is no more " +
 								"NodePort type or labelled!\n", oldService.Name)
-							cluster.NodePorts = removeNodePort(cluster.NodePorts, oldIndex)
+							removeNodePort(&cluster.NodePorts, oldIndex)
 							log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
 						}
 					}
@@ -185,7 +213,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 					oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
 					if oldFound {
 						log.Printf("removing service %v from cluster.NodePorts because it is accidentally added!\n", oldService.Name)
-						cluster.NodePorts = removeNodePort(cluster.NodePorts, oldIndex)
+						removeNodePort(&cluster.NodePorts, oldIndex)
 						log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
 					}
 
@@ -195,13 +223,9 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 						if !newFound {
 							log.Printf("adding service %v to cluster.NodePorts because it is labelled and NodePort type!\n",
 								newService.Name)
-							cluster.NodePorts = append(cluster.NodePorts, newNodePort)
-							for _, v := range cluster.Workers {
-								_, found := findWorker(newNodePort.Workers, *v)
-								if !found {
-									newNodePort.Workers = append(newNodePort.Workers, v)
-								}
-							}
+							addNodePort(&cluster.NodePorts, newNodePort)
+							// TODO: Add cluster.Workers to newly created NodePort (TEST)
+							addWorkersToNodePort(cluster.Workers, newNodePort)
 						} else {
 							log.Printf("service %v already found in cluster.NodePorts, this is buggy, inspect! " +
 								"skipping adding operation!\n", newService.Name)
@@ -211,13 +235,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 				}
 
 				// Apply changes to the template
-				tpl := template.Must(template.ParseFiles(templateInputFile))
-				f, err := os.Create(templateOutputFile)
-				checkError(err)
-				err = tpl.ExecuteTemplate(f, "main", nginxConf)
-				checkError(err)
-				err = f.Close()
-				checkError(err)
+				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
 				// err = reloadNginx()
 				// checkError(err)
@@ -231,26 +249,20 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, custo
 			 */
 
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[customAnnotation]
+			_, ok := service.Annotations[*customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
 				log.Printf("service %v is deleted on namespace %v!\n", service.Name, service.Namespace)
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
 					log.Printf("deleted service %v found on the cluster.NodePorts slice, removing!\n", service.Name)
-					cluster.NodePorts = removeNodePort(cluster.NodePorts, index)
+					removeNodePort(&cluster.NodePorts, index)
 					log.Printf("final cluster.NodePorts after delete operation = %v\n", cluster.NodePorts)
 				}
 			}
 
 			// Apply changes to the template
-			tpl := template.Must(template.ParseFiles(templateInputFile))
-			f, err := os.Create(templateOutputFile)
-			checkError(err)
-			err = tpl.ExecuteTemplate(f, "main", nginxConf)
-			checkError(err)
-			err = f.Close()
-			checkError(err)
+			renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
 			// err = reloadNginx()
 			// checkError(err)

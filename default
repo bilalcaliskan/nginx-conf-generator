@@ -11,6 +11,22 @@ server {
     }
 }
 
+server {
+    listen 31828;
+    server_name _;
+    location / {
+        proxy_pass http://192.168.99.101_31828;
+    }
+}
+
+server {
+    listen 30567;
+    server_name _;
+    location / {
+        proxy_pass http://192.168.99.101_30567;
+    }
+}
+
 
 
 
@@ -21,6 +37,24 @@ upstream 192.168.99.101_32444 {
     server 192.168.99.101:32444;
     
     server 192.168.99.106:32444;
+    
+}
+
+upstream 192.168.99.101_31828 {
+    
+    
+    server 192.168.99.101:31828;
+    
+    server 192.168.99.106:31828;
+    
+}
+
+upstream 192.168.99.101_30567 {
+    
+    
+    server 192.168.99.101:30567;
+    
+    server 192.168.99.106:30567;
     
 }
 
