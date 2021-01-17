@@ -155,8 +155,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 				// Apply changes to the template
 				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-				/*err := reloadNginx()
-				checkError(err)*/
+				err := reloadNginx()
+				checkError(err)
 			} else {
 				log.Printf("service %v on namespace %v is not annotated or NodePort type!\n", service.Name,
 					service.Spec.Type)
@@ -235,8 +235,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 				// Apply changes to the template
 				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-				/*err := reloadNginx()
-				checkError(err)*/
+				err := reloadNginx()
+				checkError(err)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -262,8 +262,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset) {
 			// Apply changes to the template
 			renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
 
-			/*err := reloadNginx()
-			checkError(err)*/
+			err := reloadNginx()
+			checkError(err)
 		},
 	})
 	informerFactory.Start(wait.NeverStop)
