@@ -1,6 +1,7 @@
 package main
 
 import (
+	"go.uber.org/zap"
 	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -33,18 +34,21 @@ func getClientSet(config *rest.Config) (*kubernetes.Clientset, error) {
 
 func checkError(err error) {
 	if err != nil {
+
 		log.Fatalln(err.Error())
 	}
 }
 
-// TODO: uncomment calling lines that function
-func reloadNginx() error {
+func reloadNginx(logger *zap.Logger) {
+	logger.Info("trying to reload Nginx with rendered configuration file")
 	cmd := exec.Command("nginx", "-s", "reload")
 	err := cmd.Run()
 	if err != nil {
-		return err
+		logger.Fatal("an error occured while reloading Nginx service", zap.String("error",
+			err.Error()))
+	} else {
+		logger.Info("successfully reloaded Nginx service")
 	}
-	return nil
 }
 
 func addWorker(slice *[]*Worker, worker *Worker) {

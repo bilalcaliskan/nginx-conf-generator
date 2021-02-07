@@ -1,4 +1,5 @@
-## Introduction
+## Nginx Conf Generator
+[![CI](https://github.com/bilalcaliskan/nginx-conf-generator/workflows/CI/badge.svg?event=push)](https://github.com/bilalcaliskan/nginx-conf-generator/actions?query=workflow%3ACI)
 
 That tool uses `client-go` to communicate with multi Kubernetes clusters and picks the NodePort port 
 of services which is a NodePort type service and contains specific annotation. Default annotation can 

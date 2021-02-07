@@ -2,8 +2,7 @@ package main
 
 import (
 	"flag"
-	// v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	//"log"
+	"go.uber.org/zap"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,12 +13,19 @@ var (
 	nginxConf = &NginxConf{
 		Clusters: clusters,
 	}
-	templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel *string
+	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel *string
+	logger *zap.Logger
+	err error
+	kubeConfigPathArr []string
 )
 
+func init() {
+	logger, err = zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
 
-func main() {
-	kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
+	kubeConfigPaths = flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
 	workerNodeLabel = flag.String("workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
 		"worker nodes, defaults to node-role.kubernetes.io/worker=")
@@ -32,27 +38,29 @@ func main() {
 	templateOutputFile = flag.String("templateOutputFile", "default", "output path of the template file")
 	flag.Parse()
 
-	// TODO: Fix the performance-related problems, use more pointers to avoid re-initializing slices etc
-	// TODO: Refactor neccessary parts
-	// TODO: Test multi-cluster
+	kubeConfigPathArr = strings.Split(*kubeConfigPaths, ",")
+}
+
+func main() {
 	// TODO: Unit testing!
 
-	kubeConfigPathArr := strings.Split(*kubeConfigPaths, ",")
 	for _, path := range kubeConfigPathArr {
 		restConfig, err := getConfig(path)
-		checkError(err)
+		if err != nil {
+			logger.Fatal("fatal error occured while getting k8s config", zap.String("error", err.Error()))
+		}
+
 		clientSet, err := getClientSet(restConfig)
-		checkError(err)
+		if err != nil {
+			logger.Fatal("fatal error occured while getting clientset", zap.String("error", err.Error()))
+		}
 
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
 		cluster := newCluster(masterIp, make([]*Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
-		// run nodeInformer with seperate goroutine
-		runNodeInformer(cluster, clientSet)
-
-		// run serviceInformer with seperate goroutine
-		runServiceInformer(cluster, clientSet)
+		runNodeInformer(cluster, clientSet, logger)
+		runServiceInformer(cluster, clientSet, logger)
 	}
 
 	select {}
