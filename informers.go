@@ -29,7 +29,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
-				logger.Info("adding node to the cluster.Workers", zap.String("node", node.Status.Addresses[0].Address))
+				logger.Info("adding node to the cluster.Workers",
+					zap.String("masterIP", cluster.MasterIP), zap.String("node", node.Status.Addresses[0].Address))
 				worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 
 				// add worker to cluster.Workers slice
@@ -59,16 +60,17 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				oldWorkerIndex, oldWorkerFound := findWorker(cluster.Workers, *oldWorker)
 				if oldWorkerFound {
 					if newWorker.NodeCondition == "True" && newOk {
-						logger.Info("node is still healthy and labelled, skipping...", zap.Any("node", *oldWorker))
+						logger.Info("node is still healthy and labelled, skipping...",
+							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 					} else {
 						logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
-							zap.String("node", oldWorker.HostIP))
+							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						removeWorker(&cluster.Workers, oldWorkerIndex)
 						logger.Debug(fmt.Sprintf("final cluster.Workers after delete operation: %v\n", cluster.Workers))
 
 						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
 						logger.Info("successfully removed node from each NodePort in the cluster.NodePorts",
-							zap.String("node", oldWorker.HostIP))
+							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 
 						// Apply changes to the template
 						renderTemplate(templateInputFile, templateOutputFile, nginxConf)
@@ -79,7 +81,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				} else {
 					if newWorker.NodeCondition == "True" && newOk {
 						logger.Info("node is now healthy and labeled, adding to the cluster.Workers slice",
-							zap.String("node", oldWorker.HostIP))
+							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						addWorker(&cluster.Workers, newWorker)
 						logger.Debug(fmt.Sprintf("final cluster.Workers after add operation: %v\n", cluster.Workers))
 
@@ -92,8 +94,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 						// reload Nginx service
 						reloadNginx(logger)
 					} else {
-						logger.Info("node is still unhealthy or unlabelled, skipping...", zap.String("node",
-							oldWorker.HostIP))
+						logger.Info("node is still unhealthy or unlabelled, skipping...",
+							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 					}
 				}
 			}
@@ -102,18 +104,20 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 			node := obj.(*v1.Node)
 			nodeReady := isNodeReady(node)
 			worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
-			logger.Info("delete event fetched for node", zap.String("node", worker.HostIP))
+			logger.Info("delete event fetched for node", zap.String("masterIP", cluster.MasterIP),
+				zap.String("node", worker.HostIP))
 			index, found := findWorker(cluster.Workers, *worker)
 			if found {
-				logger.Info("node found in the cluster.Workers, removing...", zap.String("node", worker.HostIP))
+				logger.Info("node found in the cluster.Workers, removing...",
+					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				removeWorker(&cluster.Workers, index)
-				logger.Info("successfully removed node from cluster.Workers slice!", zap.String("node",
-					worker.HostIP))
+				logger.Info("successfully removed node from cluster.Workers slice!",
+					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				logger.Debug(fmt.Sprintf("final cluster.Workers = %v\n", cluster.Workers))
 
 				removeWorkerFromNodePorts(&cluster.NodePorts, worker)
 				logger.Info("successfully removed node from each NodePort in the cluster.NodePorts",
-					zap.String("node", worker.HostIP))
+					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 
 				// Apply changes to the template
@@ -123,7 +127,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				reloadNginx(logger)
 			} else {
 				logger.Info("node not found in the cluster.workers, skipping remove operation",
-					zap.String("node", worker.HostIP))
+					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 			}
 		},
 	})
@@ -147,14 +151,15 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
 				logger.Info("valid service added", zap.String("name", service.Name),
-					zap.String("namespace", service.Namespace), zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
+					zap.String("masterIP", cluster.MasterIP), zap.String("namespace", service.Namespace),
+					zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
 
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
 					nodePort = cluster.NodePorts[index]
 					logger.Info("NodePort found in the backend.NodePorts, skipping adding...",
-						zap.Int32("nodePort", nodePort.Port))
+						zap.String("masterIP", cluster.MasterIP), zap.Int32("nodePort", nodePort.Port))
 				} else {
 					addNodePort(&cluster.NodePorts, nodePort)
 				}
@@ -168,7 +173,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				reloadNginx(logger)
 			} else {
 				logger.Info("service is not valid, it is not annotated or not a NodePort type service",
-					zap.String("name", service.Name), zap.String("namespace", service.Namespace))
+					zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
+					zap.String("namespace", service.Namespace))
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -184,25 +190,28 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						if !oldNodePort.Equals(newNodePort) {
 							logger.Info("NodePort changed on the valid service, updating",
-								zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace),
-								zap.Int32("oldNodePort", oldNodePort.Port), zap.Int32("newNodePort", newNodePort.Port))
+								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
+								zap.String("namespace", oldService.Namespace), zap.Int32("oldNodePort", oldNodePort.Port),
+								zap.Int32("newNodePort", newNodePort.Port))
 							updateNodePort(&cluster.NodePorts, cluster.Workers, oldNodePort, newNodePort)
 							logger.Debug(fmt.Sprintf("final cluster.NodePorts after update operation: %v\n", cluster.NodePorts))
 						} else {
 							logger.Info("NodePort ports are the same on the updated service, nothing to do",
-								zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace),
-								zap.Int32("oldNodePort", oldNodePort.Port), zap.Int32("newNodePort", newNodePort.Port))
+								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
+								zap.String("namespace", oldService.Namespace), zap.Int32("oldNodePort", oldNodePort.Port),
+								zap.Int32("newNodePort", newNodePort.Port))
 						}
 					} else {
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
 						oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
 						if oldFound {
 							logger.Info("removing service from cluster.NodePorts because it is no more NodePort " +
-								"type or no more labelled!", zap.String("name", oldService.Name),
-								zap.String("namespace", oldService.Namespace))
+								"type or no more labelled!", zap.String("masterIP", cluster.MasterIP),
+								zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
 							removeNodePort(&cluster.NodePorts, oldIndex)
 							logger.Info("successfully removed service from cluster.NodePorts",
-								zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
+								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
+								zap.String("namespace", oldService.Namespace))
 							logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 						}
 					}
@@ -211,10 +220,12 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 					oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
 					if oldFound {
 						logger.Info("removing service from cluster.NodePorts because it is accidentially added",
-							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
+							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
+							zap.String("namespace", oldService.Namespace))
 						removeNodePort(&cluster.NodePorts, oldIndex)
 						logger.Info("successfully removed service from cluster.NodePorts",
-							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
+							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
+							zap.String("namespace", oldService.Namespace))
 						logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 					}
 
@@ -223,17 +234,17 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 						_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
 						if !newFound {
 							logger.Info("adding service to cluster.NodePorts because it is labelled and NodePort " +
-								"type service", zap.String("name", newService.Name), zap.String("namespace", newService.Namespace),
-								zap.Int32("nodePort", newNodePort.Port))
+								"type service",
+								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
+								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
 							addNodePort(&cluster.NodePorts, newNodePort)
 							addWorkersToNodePort(cluster.Workers, newNodePort)
 							logger.Info("successfully added service to cluster.NodePorts",
-								zap.String("name", newService.Name),
-								zap.String("namespace", newService.Namespace),
-								zap.Int32("nodePort", newNodePort.Port))
+								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
+								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
 						} else {
 							logger.Warn("service is already found in cluster.NodePorts, this is buggy, inspect!",
-								zap.String("name", newService.Name),
+								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
 								zap.String("namespace", newService.Namespace))
 						}
 
@@ -255,11 +266,11 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
 					logger.Info("valid service deleted, removing from cluster.NodePorts",
-						zap.String("name", service.Name),
+						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
 						zap.String("namespace", service.Namespace))
 					removeNodePort(&cluster.NodePorts, index)
 					logger.Info("successfully removed deleted service from cluster.NodePorts",
-						zap.String("name", service.Name),
+						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
 						zap.String("namespace", service.Namespace))
 					logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 				}
