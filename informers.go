@@ -25,7 +25,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
-			_, ok := node.Labels[*workerNodeLabel]
+			_, ok := node.Labels[workerNodeLabel]
 			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
@@ -40,7 +40,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
-				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 				// reload Nginx service
 				reloadNginx(logger)
@@ -52,7 +52,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 
 			// there is an update for sure
 			if oldNode.ResourceVersion != newNode.ResourceVersion {
-				_, newOk := newNode.Labels[*workerNodeLabel]
+				_, newOk := newNode.Labels[workerNodeLabel]
 				oldWorker := newWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
 				newWorker := newWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
@@ -71,7 +71,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 							zap.String("node", oldWorker.HostIP))
 
 						// Apply changes to the template
-						renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+						renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 						// reload Nginx service
 						reloadNginx(logger)
@@ -87,7 +87,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
 
 						// Apply changes to the template
-						renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+						renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 						// reload Nginx service
 						reloadNginx(logger)
@@ -117,7 +117,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 
 				// Apply changes to the template
-				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 				// reload Nginx service
 				reloadNginx(logger)
@@ -144,7 +144,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[*customAnnotation]
+			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
 				logger.Info("valid service added", zap.String("name", service.Name),
 					zap.String("namespace", service.Namespace), zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
@@ -162,7 +162,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
-				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 				// Reload Nginx service
 				reloadNginx(logger)
@@ -176,8 +176,8 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 			newService := newObj.(*v1.Service)
 			// There is an actual update on the service
 			if oldService.ResourceVersion != newService.ResourceVersion {
-				_, oldOk := oldService.Annotations[*customAnnotation]
-				_, newOk := newService.Annotations[*customAnnotation]
+				_, oldOk := oldService.Annotations[customAnnotation]
+				_, newOk := newService.Annotations[customAnnotation]
 				if oldOk && oldService.Spec.Type == "NodePort" {
 					if newOk && newService.Spec.Type == "NodePort" {
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
@@ -241,7 +241,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				}
 
 				// Apply changes to the template
-				renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 				// Reload Nginx service
 				reloadNginx(logger)
@@ -249,7 +249,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 		},
 		DeleteFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[*customAnnotation]
+			_, ok := service.Annotations[customAnnotation]
 			if service.Spec.Type == "NodePort" && ok {
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
@@ -266,7 +266,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 			}
 
 			// Apply changes to the template
-			renderTemplate(*templateInputFile, *templateOutputFile, nginxConf)
+			renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 
 			// Reload Nginx service
 			reloadNginx(logger)

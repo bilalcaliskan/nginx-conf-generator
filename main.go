@@ -1,7 +1,7 @@
 package main
 
 import (
-	"flag"
+	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"os"
 	"path/filepath"
@@ -13,7 +13,7 @@ var (
 	nginxConf = &NginxConf{
 		Clusters: clusters,
 	}
-	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel *string
+	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel string
 	logger *zap.Logger
 	err error
 	kubeConfigPathArr []string
@@ -25,20 +25,19 @@ func init() {
 		panic(err)
 	}
 
-	kubeConfigPaths = flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
+	flag.StringVar(&kubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
-	workerNodeLabel = flag.String("workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
+	flag.StringVar(&workerNodeLabel, "workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
 		"worker nodes, defaults to node-role.kubernetes.io/worker=")
-	customAnnotation = flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
+	flag.StringVar(&customAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
-	templateInputFile = flag.String("templateInputFile", "resources/default.conf.tmpl", "input " +
+	flag.StringVar(&templateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input " +
 		"path of the template file")
-	// templateOutputFile = flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
-	//	"path of the template file")
-	templateOutputFile = flag.String("templateOutputFile", "default", "output path of the template file")
+	flag.StringVar(&templateOutputFile, "templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
+		"path of the template file")
 	flag.Parse()
 
-	kubeConfigPathArr = strings.Split(*kubeConfigPaths, ",")
+	kubeConfigPathArr = strings.Split(kubeConfigPaths, ",")
 }
 
 func main() {

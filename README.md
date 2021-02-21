@@ -21,7 +21,7 @@ create only required role and rolebinding for the tool.
 
 Then modifies the `templateOutputFile(defaults to /etc/nginx/sites-enabled/default)` and reloads the Nginx process.
 
-### Single cluster
+#### Single cluster
 Below flags are the keys to communicate with cluster:
 ```
 kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
@@ -31,5 +31,16 @@ workerNodeIps := flag.String("workerNodeIps", "192.168.0.201", "comma seperated 
 		"address of the worker nodes to reach the services over NodePort")
 ```
 
-### Multi cluster
+#### Multi cluster
 Provide a comma seperated list of arguments to the flag `-kubeConfigPaths` and `workerNodeIps` with the same order.
+
+### Download
+
+#### Binary
+Binary can be downloaded from [Releases](https://github.com/bilalcaliskan/nginx-conf-generator/releases) page.
+
+#### Docker
+Docker image can be downloaded with below command:
+```shell
+$ docker run bilalcaliskan/nginx-conf-generator:latest
+```
