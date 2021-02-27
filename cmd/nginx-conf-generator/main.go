@@ -44,6 +44,13 @@ func init() {
 func main() {
 	// TODO: Unit testing!
 
+	defer func() {
+		err := logger.Sync()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	for _, path := range kubeConfigPathArr {
 		restConfig, err := kubernetes.GetConfig(path)
 		if err != nil {

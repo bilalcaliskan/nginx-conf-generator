@@ -16,7 +16,6 @@ var err error
 
 func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, workerNodeLabel, templateInputFile,
 	templateOutputFile string, nginxConf *NginxConf) {
-	defer logger.Sync()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -166,7 +165,6 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 
 func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, templateInputFile,
 	customAnnotation, templateOutputFile string, nginxConf *NginxConf) {
-	defer logger.Sync()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
