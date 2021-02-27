@@ -1,4 +1,4 @@
-package main
+package kubernetes
 
 import (
 	v1 "k8s.io/api/core/v1"
@@ -11,10 +11,10 @@ type NginxConf struct {
 type Cluster struct {
 	MasterIP string
 	Workers []*Worker
-	NodePorts []*NodePort
+	NodePorts []*nodePort
 }
 
-type NodePort struct {
+type nodePort struct {
 	MasterIP string
 	Port int32
 	Workers []*Worker
@@ -25,22 +25,22 @@ type Worker struct {
 	NodeCondition v1.ConditionStatus
 }
 
-func newCluster(masterIP string, workers []*Worker) *Cluster {
+func NewCluster(masterIP string, workers []*Worker) *Cluster {
 	return &Cluster{
 		MasterIP: masterIP,
 		Workers: workers,
 	}
 }
 
-func newNodePort(masterIP string, port int32) *NodePort {
-	return &NodePort{
+func newNodePort(masterIP string, port int32) *nodePort {
+	return &nodePort{
 		MasterIP: masterIP,
 		Workers: make([]*Worker, 0),
 		Port:     port,
 	}
 }
 
-func newWorker(masterIp, hostIp string, nodeReady v1.ConditionStatus) *Worker {
+func NewWorker(masterIp, hostIp string, nodeReady v1.ConditionStatus) *Worker {
 	return &Worker{
 		MasterIP: masterIp,
 		HostIP: hostIp,
@@ -48,7 +48,7 @@ func newWorker(masterIp, hostIp string, nodeReady v1.ConditionStatus) *Worker {
 	}
 }
 
-func (nodePort *NodePort) Equals(other *NodePort) bool {
+func (nodePort *nodePort) Equals(other *nodePort) bool {
 	isMasterIPEquals := nodePort.MasterIP == other.MasterIP
 	isPortEquals := nodePort.Port == other.Port
 	return isMasterIPEquals && isPortEquals

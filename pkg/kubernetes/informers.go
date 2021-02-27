@@ -1,4 +1,4 @@
-package main
+package kubernetes
 
 import (
 	"fmt"
@@ -12,14 +12,11 @@ import (
 	_ "time"
 )
 
-func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger) {
-	defer func() {
-		err = logger.Sync()
-		if err != nil {
-			panic(err)
-		}
-	}()
+var err error
 
+func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, workerNodeLabel, templateInputFile,
+	templateOutputFile string, nginxConf *NginxConf) {
+	defer logger.Sync()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -31,20 +28,28 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 			if ok && nodeReady == "True" {
 				logger.Info("adding node to the cluster.Workers",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", node.Status.Addresses[0].Address))
-				worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
+				worker := NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 
-				// add worker to cluster.Workers slice
+				// add Worker to cluster.Workers slice
 				addWorker(&cluster.Workers, worker)
 				logger.Debug(fmt.Sprintf("final cluster.Workers after add operation: %v\n", cluster.Workers))
 
-				// add worker to each NodePort.Workers in the cluster.NodePorts slice
+				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
-				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				if err != nil {
+					logger.Fatal("an error occured while rendering template", zap.Error(err))
+				}
 
 				// reload Nginx service
-				reloadNginx(logger)
+				err = reloadNginx()
+				if err != nil {
+					logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+				} else {
+					logger.Info("successfully reloaded Nginx service")
+				}
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -54,8 +59,8 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 			// there is an update for sure
 			if oldNode.ResourceVersion != newNode.ResourceVersion {
 				_, newOk := newNode.Labels[workerNodeLabel]
-				oldWorker := newWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
-				newWorker := newWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
+				oldWorker := NewWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
+				newWorker := NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
 				oldWorkerIndex, oldWorkerFound := findWorker(cluster.Workers, *oldWorker)
 				if oldWorkerFound {
@@ -69,14 +74,22 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 						logger.Debug(fmt.Sprintf("final cluster.Workers after delete operation: %v\n", cluster.Workers))
 
 						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
-						logger.Info("successfully removed node from each NodePort in the cluster.NodePorts",
+						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 
 						// Apply changes to the template
-						renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						if err != nil {
+							logger.Fatal("an error occured while rendering template", zap.Error(err))
+						}
 
 						// reload Nginx service
-						reloadNginx(logger)
+						err = reloadNginx()
+						if err != nil {
+							logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+						} else {
+							logger.Info("successfully reloaded Nginx service")
+						}
 					}
 				} else {
 					if newWorker.NodeCondition == "True" && newOk {
@@ -85,14 +98,22 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 						addWorker(&cluster.Workers, newWorker)
 						logger.Debug(fmt.Sprintf("final cluster.Workers after add operation: %v\n", cluster.Workers))
 
-						// add newWorker to each NodePort.Workers in the cluster.NodePorts slice
+						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
 
 						// Apply changes to the template
-						renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						if err != nil {
+							logger.Fatal("an error occured while rendering template", zap.Error(err))
+						}
 
 						// reload Nginx service
-						reloadNginx(logger)
+						err = reloadNginx()
+						if err != nil {
+							logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+						} else {
+							logger.Info("successfully reloaded Nginx service")
+						}
 					} else {
 						logger.Info("node is still unhealthy or unlabelled, skipping...",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
@@ -103,7 +124,7 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 		DeleteFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			nodeReady := isNodeReady(node)
-			worker := newWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
+			worker := NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 			logger.Info("delete event fetched for node", zap.String("masterIP", cluster.MasterIP),
 				zap.String("node", worker.HostIP))
 			index, found := findWorker(cluster.Workers, *worker)
@@ -116,15 +137,23 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				logger.Debug(fmt.Sprintf("final cluster.Workers = %v\n", cluster.Workers))
 
 				removeWorkerFromNodePorts(&cluster.NodePorts, worker)
-				logger.Info("successfully removed node from each NodePort in the cluster.NodePorts",
+				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 
 				// Apply changes to the template
-				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				if err != nil {
+					logger.Fatal("an error occured while rendering template", zap.Error(err))
+				}
 
 				// reload Nginx service
-				reloadNginx(logger)
+				err = reloadNginx()
+				if err != nil {
+					logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+				} else {
+					logger.Info("successfully reloaded Nginx service")
+				}
 			} else {
 				logger.Info("node not found in the cluster.workers, skipping remove operation",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
@@ -135,21 +164,16 @@ func runNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 	informerFactory.WaitForCacheSync(wait.NeverStop)
 }
 
-func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger) {
-	defer func() {
-		err = logger.Sync()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
+func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, templateInputFile,
+	customAnnotation, templateOutputFile string, nginxConf *NginxConf) {
+	defer logger.Sync()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[customAnnotation]
-			if service.Spec.Type == "NodePort" && ok {
+			if service.Spec.Type == "nodePort" && ok {
 				logger.Info("valid service added", zap.String("name", service.Name),
 					zap.String("masterIP", cluster.MasterIP), zap.String("namespace", service.Namespace),
 					zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
@@ -158,7 +182,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
 					nodePort = cluster.NodePorts[index]
-					logger.Info("NodePort found in the backend.NodePorts, skipping adding...",
+					logger.Info("nodePort found in the backend.NodePorts, skipping adding...",
 						zap.String("masterIP", cluster.MasterIP), zap.Int32("nodePort", nodePort.Port))
 				} else {
 					addNodePort(&cluster.NodePorts, nodePort)
@@ -167,12 +191,20 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
-				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				if err != nil {
+					logger.Fatal("an error occured while rendering template", zap.Error(err))
+				}
 
-				// Reload Nginx service
-				reloadNginx(logger)
+				// reload Nginx service
+				err = reloadNginx()
+				if err != nil {
+					logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+				} else {
+					logger.Info("successfully reloaded Nginx service")
+				}
 			} else {
-				logger.Info("service is not valid, it is not annotated or not a NodePort type service",
+				logger.Info("service is not valid, it is not annotated or not a nodePort type service",
 					zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
 					zap.String("namespace", service.Namespace))
 			}
@@ -184,19 +216,19 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 			if oldService.ResourceVersion != newService.ResourceVersion {
 				_, oldOk := oldService.Annotations[customAnnotation]
 				_, newOk := newService.Annotations[customAnnotation]
-				if oldOk && oldService.Spec.Type == "NodePort" {
-					if newOk && newService.Spec.Type == "NodePort" {
+				if oldOk && oldService.Spec.Type == "nodePort" {
+					if newOk && newService.Spec.Type == "nodePort" {
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
 						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						if !oldNodePort.Equals(newNodePort) {
-							logger.Info("NodePort changed on the valid service, updating",
+							logger.Info("nodePort changed on the valid service, updating",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 								zap.String("namespace", oldService.Namespace), zap.Int32("oldNodePort", oldNodePort.Port),
 								zap.Int32("newNodePort", newNodePort.Port))
 							updateNodePort(&cluster.NodePorts, cluster.Workers, oldNodePort, newNodePort)
 							logger.Debug(fmt.Sprintf("final cluster.NodePorts after update operation: %v\n", cluster.NodePorts))
 						} else {
-							logger.Info("NodePort ports are the same on the updated service, nothing to do",
+							logger.Info("nodePort ports are the same on the updated service, nothing to do",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 								zap.String("namespace", oldService.Namespace), zap.Int32("oldNodePort", oldNodePort.Port),
 								zap.Int32("newNodePort", newNodePort.Port))
@@ -205,7 +237,7 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
 						oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
 						if oldFound {
-							logger.Info("removing service from cluster.NodePorts because it is no more NodePort " +
+							logger.Info("removing service from cluster.NodePorts because it is no more nodePort " +
 								"type or no more labelled!", zap.String("masterIP", cluster.MasterIP),
 								zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
 							removeNodePort(&cluster.NodePorts, oldIndex)
@@ -229,11 +261,11 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 						logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 					}
 
-					if newOk && newService.Spec.Type == "NodePort" {
+					if newOk && newService.Spec.Type == "nodePort" {
 						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
 						if !newFound {
-							logger.Info("adding service to cluster.NodePorts because it is labelled and NodePort " +
+							logger.Info("adding service to cluster.NodePorts because it is labelled and nodePort " +
 								"type service",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
 								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
@@ -252,16 +284,24 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				}
 
 				// Apply changes to the template
-				renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				if err != nil {
+					logger.Fatal("an error occured while rendering template", zap.Error(err))
+				}
 
-				// Reload Nginx service
-				reloadNginx(logger)
+				// reload Nginx service
+				err = reloadNginx()
+				if err != nil {
+					logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+				} else {
+					logger.Info("successfully reloaded Nginx service")
+				}
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[customAnnotation]
-			if service.Spec.Type == "NodePort" && ok {
+			if service.Spec.Type == "nodePort" && ok {
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
@@ -277,10 +317,18 @@ func runServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 			}
 
 			// Apply changes to the template
-			renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+			err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+			if err != nil {
+				logger.Fatal("an error occured while rendering template", zap.Error(err))
+			}
 
-			// Reload Nginx service
-			reloadNginx(logger)
+			// reload Nginx service
+			err = reloadNginx()
+			if err != nil {
+				logger.Fatal("an error occured while reloading Nginx service", zap.String("error", err.Error()))
+			} else {
+				logger.Info("successfully reloaded Nginx service")
+			}
 		},
 	})
 	informerFactory.Start(wait.NeverStop)

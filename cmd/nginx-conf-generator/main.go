@@ -3,14 +3,15 @@ package main
 import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
+	"nginx-conf-generator/pkg/kubernetes"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 var (
-	clusters []*Cluster
-	nginxConf = &NginxConf{
+	clusters []*kubernetes.Cluster
+	nginxConf = &kubernetes.NginxConf{
 		Clusters: clusters,
 	}
 	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel string
@@ -44,22 +45,24 @@ func main() {
 	// TODO: Unit testing!
 
 	for _, path := range kubeConfigPathArr {
-		restConfig, err := getConfig(path)
+		restConfig, err := kubernetes.GetConfig(path)
 		if err != nil {
 			logger.Fatal("fatal error occured while getting k8s config", zap.String("error", err.Error()))
 		}
 
-		clientSet, err := getClientSet(restConfig)
+		clientSet, err := kubernetes.GetClientSet(restConfig)
 		if err != nil {
 			logger.Fatal("fatal error occured while getting clientset", zap.String("error", err.Error()))
 		}
 
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
-		cluster := newCluster(masterIp, make([]*Worker, 0))
+		cluster := kubernetes.NewCluster(masterIp, make([]*kubernetes.Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
-		runNodeInformer(cluster, clientSet, logger)
-		runServiceInformer(cluster, clientSet, logger)
+		kubernetes.RunNodeInformer(cluster, clientSet, logger, workerNodeLabel, templateInputFile, templateOutputFile,
+			nginxConf)
+		kubernetes.RunServiceInformer(cluster, clientSet, logger, customAnnotation, templateInputFile, templateOutputFile,
+			nginxConf)
 	}
 
 	select {}

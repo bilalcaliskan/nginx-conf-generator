@@ -1,18 +1,16 @@
-package main
+package kubernetes
 
 import (
-	"go.uber.org/zap"
 	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"log"
 	"os"
 	"os/exec"
 )
 
-func getConfig(kubeConfigPath string) (*rest.Config, error) {
+func GetConfig(kubeConfigPath string) (*rest.Config, error) {
 	var config *rest.Config
 	var err error
 
@@ -24,31 +22,12 @@ func getConfig(kubeConfigPath string) (*rest.Config, error) {
 	return config, nil
 }
 
-func getClientSet(config *rest.Config) (*kubernetes.Clientset, error) {
+func GetClientSet(config *rest.Config) (*kubernetes.Clientset, error) {
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 	return clientSet, nil
-}
-
-func checkError(err error) {
-	if err != nil {
-
-		log.Fatalln(err.Error())
-	}
-}
-
-func reloadNginx(logger *zap.Logger) {
-	logger.Info("trying to reload Nginx with rendered configuration file")
-	cmd := exec.Command("nginx", "-s", "reload")
-	err := cmd.Run()
-	if err != nil {
-		logger.Fatal("an error occured while reloading Nginx service", zap.String("error",
-			err.Error()))
-	} else {
-		logger.Info("successfully reloaded Nginx service")
-	}
 }
 
 func addWorker(slice *[]*Worker, worker *Worker) {
@@ -58,14 +37,14 @@ func addWorker(slice *[]*Worker, worker *Worker) {
 	}
 }
 
-func addNodePort(nodePorts *[]*NodePort, nodePort *NodePort) {
+func addNodePort(nodePorts *[]*nodePort, nodePort *nodePort) {
 	_, found := findNodePort(*nodePorts, *nodePort)
 	if !found {
 		*nodePorts = append(*nodePorts, nodePort)
 	}
 }
 
-func addWorkersToNodePort(workers []*Worker, nodePort *NodePort) {
+func addWorkersToNodePort(workers []*Worker, nodePort *nodePort) {
 	for _, v := range workers {
 		_, found := findWorker(nodePort.Workers, *v)
 		if !found {
@@ -74,7 +53,7 @@ func addWorkersToNodePort(workers []*Worker, nodePort *NodePort) {
 	}
 }
 
-func addWorkerToNodePorts(nodePorts []*NodePort, worker *Worker) {
+func addWorkerToNodePorts(nodePorts []*nodePort, worker *Worker) {
 	for _, v := range nodePorts {
 		_, found := findWorker(v.Workers, *worker)
 		if !found {
@@ -83,7 +62,7 @@ func addWorkerToNodePorts(nodePorts []*NodePort, worker *Worker) {
 	}
 }
 
-func removeWorkerFromNodePorts(nodePorts *[]*NodePort, worker *Worker) {
+func removeWorkerFromNodePorts(nodePorts *[]*nodePort, worker *Worker) {
 	for _, v := range *nodePorts {
 		index, found := findWorker(v.Workers, *worker)
 		if found {
@@ -101,7 +80,7 @@ func findWorker(workers []*Worker, worker Worker) (int, bool) {
 	return -1, false
 }
 
-func findNodePort(nodePorts []*NodePort, nodePort NodePort) (int, bool) {
+func findNodePort(nodePorts []*nodePort, nodePort nodePort) (int, bool) {
 	for i, item := range nodePorts {
 		if nodePort.Equals(item) {
 			return i, true
@@ -114,7 +93,7 @@ func removeWorker(workers *[]*Worker, index int) {
 	*workers = append((*workers)[:index], (*workers)[index+1:]...)
 }
 
-func removeNodePort(nodePorts *[]*NodePort, index int) {
+func removeNodePort(nodePorts *[]*nodePort, index int) {
 	*nodePorts = append((*nodePorts)[:index], (*nodePorts)[index+1:]...)
 }
 
@@ -127,7 +106,7 @@ func isNodeReady(node *v1.Node) v1.ConditionStatus {
 	return "False"
 }
 
-func updateNodePort(nodePorts *[]*NodePort, workers []*Worker, oldNodePort *NodePort, newNodePort *NodePort) {
+func updateNodePort(nodePorts *[]*nodePort, workers []*Worker, oldNodePort *nodePort, newNodePort *nodePort) {
 	oldIndex, oldFound := findNodePort(*nodePorts, *oldNodePort)
 	if oldFound {
 		removeNodePort(nodePorts, oldIndex)
@@ -136,13 +115,32 @@ func updateNodePort(nodePorts *[]*NodePort, workers []*Worker, oldNodePort *Node
 	addNodePort(nodePorts, newNodePort)
 }
 
-func renderTemplate(templateInputFile, templateOutputFile string, data interface{}) {
-	// Apply changes to the template
+func reloadNginx() error {
+	cmd := exec.Command("nginx", "-s", "reload")
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func renderTemplate(templateInputFile, templateOutputFile string, data interface{}) error {
 	tpl := template.Must(template.ParseFiles(templateInputFile))
 	f, err := os.Create(templateOutputFile)
-	checkError(err)
+	if err != nil {
+		return err
+	}
+
 	err = tpl.ExecuteTemplate(f, "main", data)
-	checkError(err)
+	if err != nil {
+		return err
+	}
+
 	err = f.Close()
-	checkError(err)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
