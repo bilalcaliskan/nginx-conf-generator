@@ -3,15 +3,15 @@ package main
 import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-	"nginx-conf-generator/pkg/kubernetes"
+	"nginx-conf-generator/pkg/k8s"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 var (
-	clusters []*kubernetes.Cluster
-	nginxConf = &kubernetes.NginxConf{
+	clusters []*k8s.Cluster
+	nginxConf = &k8s.NginxConf{
 		Clusters: clusters,
 	}
 	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel string
@@ -28,8 +28,8 @@ func init() {
 
 	flag.StringVar(&kubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma seperated list of kubeconfig file paths to access with the cluster")
-	flag.StringVar(&workerNodeLabel, "workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify " +
-		"worker nodes, defaults to node-role.kubernetes.io/worker=")
+	flag.StringVar(&workerNodeLabel, "workerNodeLabel", "node-role.k8s.io/worker", "label to specify " +
+		"worker nodes, defaults to node-role.k8s.io/worker=")
 	flag.StringVar(&customAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
 	flag.StringVar(&templateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input " +
@@ -52,23 +52,23 @@ func main() {
 	}()
 
 	for _, path := range kubeConfigPathArr {
-		restConfig, err := kubernetes.GetConfig(path)
+		restConfig, err := k8s.GetConfig(path)
 		if err != nil {
 			logger.Fatal("fatal error occured while getting k8s config", zap.String("error", err.Error()))
 		}
 
-		clientSet, err := kubernetes.GetClientSet(restConfig)
+		clientSet, err := k8s.GetClientSet(restConfig)
 		if err != nil {
 			logger.Fatal("fatal error occured while getting clientset", zap.String("error", err.Error()))
 		}
 
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
-		cluster := kubernetes.NewCluster(masterIp, make([]*kubernetes.Worker, 0))
+		cluster := k8s.NewCluster(masterIp, make([]*k8s.Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
-		kubernetes.RunNodeInformer(cluster, clientSet, logger, workerNodeLabel, templateInputFile, templateOutputFile,
+		k8s.RunNodeInformer(cluster, clientSet, logger, workerNodeLabel, templateInputFile, templateOutputFile,
 			nginxConf)
-		kubernetes.RunServiceInformer(cluster, clientSet, logger, customAnnotation, templateInputFile, templateOutputFile,
+		k8s.RunServiceInformer(cluster, clientSet, logger, customAnnotation, templateInputFile, templateOutputFile,
 			nginxConf)
 	}
 
