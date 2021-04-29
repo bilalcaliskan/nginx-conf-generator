@@ -12,8 +12,7 @@ import (
 	_ "time"
 )
 
-var err error
-
+// RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
 func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, workerNodeLabel, templateInputFile,
 	templateOutputFile string, nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
@@ -37,7 +36,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
-				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occured while rendering template", zap.Error(err))
 				}
@@ -77,7 +76,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 
 						// Apply changes to the template
-						err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 						if err != nil {
 							logger.Fatal("an error occured while rendering template", zap.Error(err))
 						}
@@ -101,7 +100,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
 
 						// Apply changes to the template
-						err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 						if err != nil {
 							logger.Fatal("an error occured while rendering template", zap.Error(err))
 						}
@@ -141,7 +140,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 
 				// Apply changes to the template
-				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occured while rendering template", zap.Error(err))
 				}
@@ -163,6 +162,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 	informerFactory.WaitForCacheSync(wait.NeverStop)
 }
 
+// RunServiceInformer spins up a shared informer factory and fetch Kubernetes service events
 func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, templateInputFile,
 	customAnnotation, templateOutputFile string, nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
@@ -189,7 +189,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
-				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occured while rendering template", zap.Error(err))
 				}
@@ -282,7 +282,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 				}
 
 				// Apply changes to the template
-				err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occured while rendering template", zap.Error(err))
 				}
@@ -315,7 +315,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logge
 			}
 
 			// Apply changes to the template
-			err = renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+			err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
 			if err != nil {
 				logger.Fatal("an error occured while rendering template", zap.Error(err))
 			}
