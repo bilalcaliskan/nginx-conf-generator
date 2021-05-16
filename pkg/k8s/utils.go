@@ -10,6 +10,7 @@ import (
 	"os/exec"
 )
 
+// GetConfig creates a rest.Config and returns it
 func GetConfig(kubeConfigPath string) (*rest.Config, error) {
 	var config *rest.Config
 	var err error
@@ -22,6 +23,7 @@ func GetConfig(kubeConfigPath string) (*rest.Config, error) {
 	return config, nil
 }
 
+// GetClientSet creates a kubernetes.Clientset and returns it
 func GetClientSet(config *rest.Config) (*kubernetes.Clientset, error) {
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
