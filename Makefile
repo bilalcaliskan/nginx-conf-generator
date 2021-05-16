@@ -9,6 +9,7 @@ vet:
 
 ineffassign:
 	go get -u github.com/gordonklaus/ineffassign
+	go mod vendor
 	ineffassign ./...
 
 test:
