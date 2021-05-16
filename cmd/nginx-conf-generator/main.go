@@ -28,7 +28,7 @@ func init() {
 	}
 
 	flag.StringVar(&kubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
-		"comma seperated list of kubeconfig file paths to access with the cluster")
+		"comma separated list of kubeconfig file paths to access with the cluster")
 	flag.StringVar(&workerNodeLabel, "workerNodeLabel", "node-role.k8s.io/worker", "label to specify "+
 		"worker nodes, defaults to node-role.k8s.io/worker=")
 	flag.StringVar(&customAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
