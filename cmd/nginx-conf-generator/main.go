@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "github.com/dimiro1/banner/autoload"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"nginx-conf-generator/pkg/k8s"
