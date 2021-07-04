@@ -8,11 +8,20 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"nginx-conf-generator/pkg/logging"
 	"time"
 )
 
+var (
+	logger *zap.Logger
+)
+
+func init() {
+	logger = logging.GetLogger()
+}
+
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
-func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, workerNodeLabel, templateInputFile,
+func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNodeLabel, templateInputFile,
 	templateOutputFile string, nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
@@ -162,7 +171,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *
 }
 
 // RunServiceInformer spins up a shared informer factory and fetch Kubernetes service events
-func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger, templateInputFile,
+func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templateInputFile,
 	customAnnotation, templateOutputFile string, nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	serviceInformer := informerFactory.Core().V1().Services()

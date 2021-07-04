@@ -4,6 +4,7 @@ import (
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"nginx-conf-generator/pkg/k8s"
+	"nginx-conf-generator/pkg/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,15 +17,11 @@ var (
 	}
 	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel string
 	logger                                                                                    *zap.Logger
-	err                                                                                       error
 	kubeConfigPathArr                                                                         []string
 )
 
 func init() {
-	logger, err = zap.NewProduction()
-	if err != nil {
-		panic(err)
-	}
+	logger = logging.GetLogger()
 
 	flag.StringVar(&kubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
 		"comma separated list of kubeconfig file paths to access with the cluster")
@@ -66,9 +63,9 @@ func main() {
 		cluster := k8s.NewCluster(masterIp, make([]*k8s.Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
-		k8s.RunNodeInformer(cluster, clientSet, logger, workerNodeLabel, templateInputFile, templateOutputFile,
+		k8s.RunNodeInformer(cluster, clientSet, workerNodeLabel, templateInputFile, templateOutputFile,
 			nginxConf)
-		k8s.RunServiceInformer(cluster, clientSet, logger, customAnnotation, templateInputFile, templateOutputFile,
+		k8s.RunServiceInformer(cluster, clientSet, customAnnotation, templateInputFile, templateOutputFile,
 			nginxConf)
 	}
 
