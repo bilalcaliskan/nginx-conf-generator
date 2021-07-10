@@ -1,12 +1,10 @@
 package main
 
 import (
-	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
 	"nginx-conf-generator/pkg/k8s"
 	"nginx-conf-generator/pkg/logging"
-	"os"
-	"path/filepath"
+	"nginx-conf-generator/pkg/options"
 	"strings"
 )
 
@@ -15,27 +13,15 @@ var (
 	nginxConf = &k8s.NginxConf{
 		Clusters: clusters,
 	}
-	kubeConfigPaths, templateInputFile, templateOutputFile, customAnnotation, workerNodeLabel string
+	ncgo *options.NginxConfGeneratorOptions
 	logger                                                                                    *zap.Logger
 	kubeConfigPathArr                                                                         []string
 )
 
 func init() {
 	logger = logging.GetLogger()
-
-	flag.StringVar(&kubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
-		"comma separated list of kubeconfig file paths to access with the cluster")
-	flag.StringVar(&workerNodeLabel, "workerNodeLabel", "node-role.k8s.io/worker", "label to specify "+
-		"worker nodes, defaults to node-role.k8s.io/worker=")
-	flag.StringVar(&customAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
-		"selectable services")
-	flag.StringVar(&templateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input "+
-		"path of the template file")
-	flag.StringVar(&templateOutputFile, "templateOutputFile", "/etc/nginx/sites-enabled/default", "output "+
-		"path of the template file")
-	flag.Parse()
-
-	kubeConfigPathArr = strings.Split(kubeConfigPaths, ",")
+	ncgo = options.GetNginxConfGeneratorOptions()
+	kubeConfigPathArr = strings.Split(ncgo.KubeConfigPaths, ",")
 }
 
 func main() {
@@ -63,10 +49,8 @@ func main() {
 		cluster := k8s.NewCluster(masterIp, make([]*k8s.Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
-		k8s.RunNodeInformer(cluster, clientSet, workerNodeLabel, templateInputFile, templateOutputFile,
-			nginxConf)
-		k8s.RunServiceInformer(cluster, clientSet, customAnnotation, templateInputFile, templateOutputFile,
-			nginxConf)
+		k8s.RunNodeInformer(cluster, clientSet, ncgo, nginxConf)
+		k8s.RunServiceInformer(cluster, clientSet, ncgo, nginxConf)
 	}
 
 	select {}

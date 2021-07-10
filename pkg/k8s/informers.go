@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"nginx-conf-generator/pkg/logging"
+	"nginx-conf-generator/pkg/options"
 	"time"
 )
 
@@ -21,14 +22,14 @@ func init() {
 }
 
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
-func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNodeLabel, templateInputFile,
-	templateOutputFile string, nginxConf *NginxConf) {
+func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *options.NginxConfGeneratorOptions,
+	nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
-			_, ok := node.Labels[workerNodeLabel]
+			_, ok := node.Labels[ncgo.WorkerNodeLabel]
 			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
@@ -44,7 +45,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
-				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occurred while rendering template", zap.Error(err))
 				}
@@ -64,7 +65,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 
 			// there is an update for sure
 			if oldNode.ResourceVersion != newNode.ResourceVersion {
-				_, newOk := newNode.Labels[workerNodeLabel]
+				_, newOk := newNode.Labels[ncgo.WorkerNodeLabel]
 				oldWorker := NewWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
 				newWorker := NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
@@ -84,7 +85,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 
 						// Apply changes to the template
-						err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 						if err != nil {
 							logger.Fatal("an error occurred while rendering template", zap.Error(err))
 						}
@@ -108,7 +109,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
 
 						// Apply changes to the template
-						err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 						if err != nil {
 							logger.Fatal("an error occurred while rendering template", zap.Error(err))
 						}
@@ -148,7 +149,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 
 				// Apply changes to the template
-				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occurred while rendering template", zap.Error(err))
 				}
@@ -171,14 +172,14 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, workerNo
 }
 
 // RunServiceInformer spins up a shared informer factory and fetch Kubernetes service events
-func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templateInputFile,
-	customAnnotation, templateOutputFile string, nginxConf *NginxConf) {
+func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *options.NginxConfGeneratorOptions,
+	nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[customAnnotation]
+			_, ok := service.Annotations[ncgo.CustomAnnotation]
 			if service.Spec.Type == "nodePort" && ok {
 				logger.Info("valid service added", zap.String("name", service.Name),
 					zap.String("masterIP", cluster.MasterIP), zap.String("namespace", service.Namespace),
@@ -197,7 +198,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templ
 				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
-				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occurred while rendering template", zap.Error(err))
 				}
@@ -220,8 +221,8 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templ
 			newService := newObj.(*v1.Service)
 			// There is an actual update on the service
 			if oldService.ResourceVersion != newService.ResourceVersion {
-				_, oldOk := oldService.Annotations[customAnnotation]
-				_, newOk := newService.Annotations[customAnnotation]
+				_, oldOk := oldService.Annotations[ncgo.CustomAnnotation]
+				_, newOk := newService.Annotations[ncgo.CustomAnnotation]
 				if oldOk && oldService.Spec.Type == "nodePort" {
 					if newOk && newService.Spec.Type == "nodePort" {
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
@@ -290,7 +291,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templ
 				}
 
 				// Apply changes to the template
-				err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
 					logger.Fatal("an error occurred while rendering template", zap.Error(err))
 				}
@@ -306,7 +307,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templ
 		},
 		DeleteFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[customAnnotation]
+			_, ok := service.Annotations[ncgo.CustomAnnotation]
 			if service.Spec.Type == "nodePort" && ok {
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
@@ -323,7 +324,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, templ
 			}
 
 			// Apply changes to the template
-			err := renderTemplate(templateInputFile, templateOutputFile, nginxConf)
+			err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 			if err != nil {
 				logger.Fatal("an error occurred while rendering template", zap.Error(err))
 			}
