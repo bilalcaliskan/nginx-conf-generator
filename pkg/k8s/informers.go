@@ -184,8 +184,13 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[ncgo.CustomAnnotation]
-			if service.Spec.Type == "NodePort" && ok {
+			var ok bool
+
+			if service.Annotations[ncgo.CustomAnnotation] == "true" {
+				ok = true
+			}
+
+			if service.Spec.Type == "NodePort" && ok && service.Annotations[ncgo.CustomAnnotation] == "true" {
 				logger.Info("valid service added", zap.String("name", service.Name),
 					zap.String("masterIP", cluster.MasterIP), zap.String("namespace", service.Namespace),
 					zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
@@ -201,7 +206,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 				}
 
 				addWorkersToNodePort(cluster.Workers, nodePort)
-				metrics.ProcessedNodePortCounter.Add(1)
 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -227,10 +231,18 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 			newService := newObj.(*v1.Service)
 			// There is an actual update on the service
 			if oldService.ResourceVersion != newService.ResourceVersion {
-				_, oldOk := oldService.Annotations[ncgo.CustomAnnotation]
-				_, newOk := newService.Annotations[ncgo.CustomAnnotation]
-				if oldOk && oldService.Spec.Type == "nodePort" {
-					if newOk && newService.Spec.Type == "nodePort" {
+				var oldOk, newOk bool
+				if oldService.Annotations[ncgo.CustomAnnotation] == "true" {
+					oldOk = true
+				}
+
+				if newService.Annotations[ncgo.CustomAnnotation] == "true" {
+					newOk = true
+				}
+
+				// _, newOk := (newService.Annotations[ncgo.CustomAnnotation] && newService.Annotations[ncgo.CustomAnnotation] == "true")
+				if oldOk && oldService.Spec.Type == "NodePort" {
+					if newOk && newService.Spec.Type == "NodePort" {
 						oldNodePort := newNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
 						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						if !oldNodePort.Equals(newNodePort) {
@@ -258,7 +270,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 								zap.String("namespace", oldService.Namespace))
 							logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
-							metrics.ProcessedNodePortCounter.Add(-1)
 						}
 					}
 				} else {
@@ -273,10 +284,9 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 							zap.String("namespace", oldService.Namespace))
 						logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
-						metrics.ProcessedNodePortCounter.Add(-1)
 					}
 
-					if newOk && newService.Spec.Type == "nodePort" {
+					if newOk && newService.Spec.Type == "NodePort" {
 						newNodePort := newNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
 						if !newFound {
@@ -289,7 +299,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 							logger.Info("successfully added service to cluster.NodePorts",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
 								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
-							metrics.ProcessedNodePortCounter.Add(1)
 						} else {
 							logger.Warn("service is already found in cluster.NodePorts, this is buggy, inspect!",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
@@ -316,7 +325,11 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 		},
 		DeleteFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
-			_, ok := service.Annotations[ncgo.CustomAnnotation]
+			var ok bool
+			if service.Annotations[ncgo.CustomAnnotation] == "true" {
+				ok = true
+			}
+
 			if service.Spec.Type == "NodePort" && ok {
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
@@ -329,7 +342,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
 						zap.String("namespace", service.Namespace))
 					logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
-					metrics.ProcessedNodePortCounter.Add(-1)
 				}
 			}
 
