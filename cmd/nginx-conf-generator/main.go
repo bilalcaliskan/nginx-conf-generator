@@ -4,6 +4,7 @@ import (
 	"go.uber.org/zap"
 	"nginx-conf-generator/pkg/k8s"
 	"nginx-conf-generator/pkg/logging"
+	"nginx-conf-generator/pkg/metrics"
 	"nginx-conf-generator/pkg/options"
 	"strings"
 )
@@ -13,9 +14,9 @@ var (
 	nginxConf = &k8s.NginxConf{
 		Clusters: clusters,
 	}
-	ncgo *options.NginxConfGeneratorOptions
-	logger                                                                                    *zap.Logger
-	kubeConfigPathArr                                                                         []string
+	ncgo              *options.NginxConfGeneratorOptions
+	logger            *zap.Logger
+	kubeConfigPathArr []string
 )
 
 func init() {
@@ -52,6 +53,8 @@ func main() {
 		k8s.RunNodeInformer(cluster, clientSet, ncgo, nginxConf)
 		k8s.RunServiceInformer(cluster, clientSet, ncgo, nginxConf)
 	}
+
+	go metrics.RunMetricsServer()
 
 	select {}
 }

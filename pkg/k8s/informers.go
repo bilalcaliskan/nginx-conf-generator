@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"nginx-conf-generator/pkg/logging"
+	"nginx-conf-generator/pkg/metrics"
 	"nginx-conf-generator/pkg/options"
 	"time"
 )
@@ -40,6 +41,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 				// add Worker to cluster.Workers slice
 				addWorker(&cluster.Workers, worker)
 				logger.Debug(fmt.Sprintf("final cluster.Workers after add operation: %v\n", cluster.Workers))
+				metrics.TargetNodeCounter.Add(1)
 
 				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
 				addWorkerToNodePorts(cluster.NodePorts, worker)
@@ -83,6 +85,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
+						metrics.TargetNodeCounter.Add(-1)
 
 						// Apply changes to the template
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -107,6 +110,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 
 						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
+						metrics.TargetNodeCounter.Add(1)
 
 						// Apply changes to the template
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -147,6 +151,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
+				metrics.TargetNodeCounter.Add(-1)
 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -180,7 +185,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 		AddFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[ncgo.CustomAnnotation]
-			if service.Spec.Type == "nodePort" && ok {
+			if service.Spec.Type == "NodePort" && ok {
 				logger.Info("valid service added", zap.String("name", service.Name),
 					zap.String("masterIP", cluster.MasterIP), zap.String("namespace", service.Namespace),
 					zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
@@ -196,6 +201,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 				}
 
 				addWorkersToNodePort(cluster.Workers, nodePort)
+				metrics.ProcessedNodePortCounter.Add(1)
 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -252,6 +258,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 								zap.String("namespace", oldService.Namespace))
 							logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
+							metrics.ProcessedNodePortCounter.Add(-1)
 						}
 					}
 				} else {
@@ -266,6 +273,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 							zap.String("namespace", oldService.Namespace))
 						logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
+						metrics.ProcessedNodePortCounter.Add(-1)
 					}
 
 					if newOk && newService.Spec.Type == "nodePort" {
@@ -281,6 +289,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 							logger.Info("successfully added service to cluster.NodePorts",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
 								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
+							metrics.ProcessedNodePortCounter.Add(1)
 						} else {
 							logger.Warn("service is already found in cluster.NodePorts, this is buggy, inspect!",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
@@ -308,7 +317,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 		DeleteFunc: func(obj interface{}) {
 			service := obj.(*v1.Service)
 			_, ok := service.Annotations[ncgo.CustomAnnotation]
-			if service.Spec.Type == "nodePort" && ok {
+			if service.Spec.Type == "NodePort" && ok {
 				nodePort := newNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {
@@ -320,6 +329,7 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
 						zap.String("namespace", service.Namespace))
 					logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
+					metrics.ProcessedNodePortCounter.Add(-1)
 				}
 			}
 

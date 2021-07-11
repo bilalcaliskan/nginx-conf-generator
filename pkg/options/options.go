@@ -2,7 +2,6 @@ package options
 
 import (
 	"github.com/spf13/pflag"
-	"os"
 	"path/filepath"
 )
 
@@ -25,6 +24,14 @@ type NginxConfGeneratorOptions struct {
 	TemplateInputFile string
 	// TemplateOutputFile is the output path of the template file
 	TemplateOutputFile string
+	// MetricsPort is the port of the metric server to expose prometheus metrics
+	MetricsPort int
+	// WriteTimeoutSeconds is the timeout of the write timeout for metrics server
+	WriteTimeoutSeconds int
+	// ReadTimeoutSeconds is the timeout of the write timeout for metrics server
+	ReadTimeoutSeconds int
+	// MetricsEndpoint is the endpoint to consume prometheus metrics
+	MetricsEndpoint string
 }
 
 // GetNginxConfGeneratorOptions returns the pointer of NginxConfGeneratorOptions
@@ -33,9 +40,10 @@ func GetNginxConfGeneratorOptions() *NginxConfGeneratorOptions {
 }
 
 func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
-	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "minikubeconfig"),
+	// filepath.Join(os.Getenv("HOME")
+	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join("/home/joshsagredo", ".kube", "config"),
 		"comma separated list of kubeconfig file paths to access with the cluster")
-	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "node-role.k8s.io/worker", "label to specify "+
+	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "node-role.kubernetes.io/master", "label to specify "+
 		"worker nodes, defaults to node-role.k8s.io/worker=")
 	flag.StringVar(&ncgo.CustomAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
 		"selectable services")
@@ -43,4 +51,8 @@ func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 		"path of the template file")
 	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/sites-enabled/default", "output "+
 		"path of the template file")
+	flag.IntVar(&ncgo.MetricsPort, "metricsPort", 5000, "port of the metrics server")
+	flag.IntVar(&ncgo.WriteTimeoutSeconds, "writeTimeoutSeconds", 10, "write timeout of the metrics server")
+	flag.IntVar(&ncgo.ReadTimeoutSeconds, "readTimeoutSeconds", 10, "read timeout of the metrics server")
+	flag.StringVar(&ncgo.MetricsEndpoint, "metricsEndpoint", "/metrics", "endpoint to provide prometheus metrics")
 }
