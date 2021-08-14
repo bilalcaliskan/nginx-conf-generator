@@ -3,6 +3,8 @@ module nginx-conf-generator
 go 1.16
 
 require (
+	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be // indirect
+	github.com/dimiro1/banner v1.1.0
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/go-openapi/spec v0.19.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -15,6 +17,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
+	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_golang v1.11.0
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
@@ -22,7 +25,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.19.0
-	golang.org/x/sys v0.0.0-20210809203939-894668206c86 // indirect
+	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
 	golang.org/x/tools v0.1.5 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

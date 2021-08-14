@@ -1,11 +1,14 @@
 package main
 
 import (
+	"github.com/dimiro1/banner"
 	"go.uber.org/zap"
+	"io/ioutil"
 	"nginx-conf-generator/pkg/k8s"
 	"nginx-conf-generator/pkg/logging"
 	"nginx-conf-generator/pkg/metrics"
 	"nginx-conf-generator/pkg/options"
+	"os"
 	"strings"
 )
 
@@ -23,6 +26,9 @@ func init() {
 	logger = logging.GetLogger()
 	ncgo = options.GetNginxConfGeneratorOptions()
 	kubeConfigPathArr = strings.Split(ncgo.KubeConfigPaths, ",")
+
+	dat, _ := ioutil.ReadFile("banner.txt")
+	banner.Init(os.Stdout, true, false, strings.NewReader(string(dat)))
 }
 
 func main() {
