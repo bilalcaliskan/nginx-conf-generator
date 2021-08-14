@@ -27,8 +27,8 @@ func init() {
 	ncgo = options.GetNginxConfGeneratorOptions()
 	kubeConfigPathArr = strings.Split(ncgo.KubeConfigPaths, ",")
 
-	dat, _ := ioutil.ReadFile("banner.txt")
-	banner.Init(os.Stdout, true, false, strings.NewReader(string(dat)))
+	bannerBytes, _ := ioutil.ReadFile("banner.txt")
+	banner.Init(os.Stdout, true, false, strings.NewReader(string(bannerBytes)))
 }
 
 func main() {
