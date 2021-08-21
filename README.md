@@ -2,22 +2,22 @@
 [![CI](https://github.com/bilalcaliskan/nginx-conf-generator/workflows/CI/badge.svg?event=push)](https://github.com/bilalcaliskan/nginx-conf-generator/actions?query=workflow%3ACI)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bilalcaliskan/nginx-conf-generator)](https://goreportcard.com/report/github.com/bilalcaliskan/nginx-conf-generator)
 
-That tool uses `client-go` to communicate with multi Kubernetes clusters and picks the NodePort port 
-of services which is a NodePort type service and contains specific annotation. Default annotation can 
+That tool uses `client-go` to communicate with multi Kubernetes clusters and picks the NodePort port
+of services which is a NodePort type service and contains specific annotation. Default annotation can
 be changed with above command line flag:
 ```
 customAnnotation := flag.String("customAnnotation", "nginx-conf-generator/enabled", "annotation to specify " +
 		"selectable services")
 ```
 
-That tool should be run on an Ubuntu host and the user who runs the binary file nginx-conf-generator 
+That tool should be run on an Ubuntu host and the user who runs the binary file nginx-conf-generator
 should have permissions to edit below file and reload nginx service:
 ```
 templateOutputFile := flag.String("templateOutputFile", "/etc/nginx/sites-enabled/default", "output " +
 		"path of the template file")
 ```
 
-Tool uses the kubeconfig file for authentication and authorization with Kubernetes cluster. You should consider 
+Tool uses the kubeconfig file for authentication and authorization with Kubernetes cluster. You should consider
 create only required role and rolebinding for the tool.
 
 Then modifies the `templateOutputFile(defaults to /etc/nginx/sites-enabled/default)` and reloads the Nginx process.
@@ -45,3 +45,8 @@ Docker image can be downloaded with below command:
 ```shell
 $ docker run bilalcaliskan/nginx-conf-generator:latest
 ```
+
+### Development
+This project requires below tools while developing:
+- [pre-commit](https://pre-commit.com/)
+- [golangci-lint](https://golangci-lint.run/usage/install/) - required by [pre-commit](https://pre-commit.com/)
