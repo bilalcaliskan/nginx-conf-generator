@@ -7,8 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"net/http"
-	"nginx-conf-generator/pkg/logging"
-	"nginx-conf-generator/pkg/options"
+	"nginx-conf-generator/internal/logging"
+	"nginx-conf-generator/internal/options"
 	"time"
 )
 

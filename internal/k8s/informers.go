@@ -8,9 +8,9 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"nginx-conf-generator/pkg/logging"
-	"nginx-conf-generator/pkg/metrics"
-	"nginx-conf-generator/pkg/options"
+	"nginx-conf-generator/internal/logging"
+	"nginx-conf-generator/internal/metrics"
+	"nginx-conf-generator/internal/options"
 	"time"
 )
 
