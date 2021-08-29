@@ -60,12 +60,28 @@ jobs:
       - name: Test
         run: make test
 
-  build:
+  coverage:
+    runs-on: ubuntu-latest
     needs:
       - lint
       - vet
       - ineffassign
       - test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.16.x
+      - name: Coverage Test
+        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+      - name: Coverage Upload
+        run: bash <(curl -s https://codecov.io/bash)
+
+  build:
+    needs:
+      - coverage
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
@@ -127,28 +143,3 @@ jobs:
         with:
           name: nginx-conf-generator
           path: dist/*
-
-  docker:
-    runs-on: ubuntu-latest
-    needs:
-      - tag
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2.2.0
-        with:
-          fetch-depth: 0
-
-      - name: Get Previous tag
-        id: previoustag
-        uses: WyriHaximus/github-action-get-previous-tag@v1
-
-      - name: Build the Docker image
-        run: docker build . --file Dockerfile --tag bilalcaliskan/nginx-conf-generator:${{ steps.previoustag.outputs.tag }}
-
-      - name: Publish to Registry
-        uses: elgohr/Publish-Docker-Github-Action@master
-        with:
-          name: bilalcaliskan/nginx-conf-generator
-          tags: "latest,${{ steps.previoustag.outputs.tag }}"
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
