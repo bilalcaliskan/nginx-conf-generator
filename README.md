@@ -23,23 +23,31 @@ create only required role and rolebinding for the tool.
 
 Then modifies the `templateOutputFile(defaults to /etc/nginx/sites-enabled/default)` and reloads the Nginx process.
 
-#### Single cluster
-Below flags are the keys to communicate with cluster:
-```
-kubeConfigPaths := flag.String("kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
-		"comma seperated list of kubeconfig file paths to access with the cluster")
-// single worker node ip address for each cluster. order of ip addresses must be same with kubeConfigPaths[]
-workerNodeIps := flag.String("workerNodeIps", "192.168.0.201", "comma seperated ip " +
-		"address of the worker nodes to reach the services over NodePort")
+### Configuration
+nginx-conf-generator can be customized with several command line arguments:
+```shell
+--kubeConfigPaths       comma separated list of kubeconfig file paths to access with the cluster, defaults to ~/.kube.config
+--workerNodeLabel       label to specify worker nodes, defaults to node-role.k8s.io/worker=
+--customAnnotation      annotation to specify selectable services, defaults to nginx-conf-generator/enabled
+--templateInputFile     input path of the template file, defaults to ./resources/default.conf.tmpl
+--templateOutputFile    output path of the template file, defaults to /etc/nginx/sites-enabled/default
+--metricsPort           port of the metrics server, defaults to 5000
+--writeTimeoutSeconds   write timeout of the metrics server, defaults to 10
+--readTimeoutSeconds    read timeout of the metrics server, defaults to 10
+--metricsEndpoint       endpoint to provide prometheus metrics, defaults to /metrics
 ```
 
-#### Multi cluster
-Provide a comma seperated list of arguments to the flag `-kubeConfigPaths` and `workerNodeIps` with the same order.
+> If you want to cover multiple kubernetes clusters, add comma seperated list of kubeconfig paths with **--kubeConfigPaths** argument.
 
 ### Download
-
-#### Binary
 Binary can be downloaded from [Releases](https://github.com/bilalcaliskan/nginx-conf-generator/releases) page.
+
+After then, you can simply run binary by providing required command line arguments:
+```shell
+$ ./nginx-conf-generator --kubeConfigPaths ~/.kube/config1,~/.kube/config2 --customAnnotation nginx-conf-generator/enabled
+```
+
+> Since nginx-conf-generator needs to reload nginx systemd service when necessary, you must run it with root user.
 
 ### Development
 This project requires below tools while developing:
