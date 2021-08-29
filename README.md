@@ -12,6 +12,8 @@ the Nginx configuration and reloads the Nginx process.
 nginx-conf-generator uses the kubeconfig file for authentication and authorization with Kubernetes cluster.
 You should ensure that given kubeconfig file has read only access on the target cluster.
 
+Also nginx-conf-generator needs to reload nginx process when necessary, you must run it with root user.
+
 ## Configuration
 nginx-conf-generator can be customized with several command line arguments:
 ```
@@ -41,8 +43,6 @@ After then, you can simply run binary by providing required command line argumen
 ```shell
 $ ./nginx-conf-generator --kubeConfigPaths ~/.kube/config1,~/.kube/config2 --customAnnotation nginx-conf-generator/enabled
 ```
-
-> Since nginx-conf-generator needs to reload nginx process when necessary, you must run it with root user.
 
 ## Development
 This project requires below tools while developing:
