@@ -2,6 +2,9 @@
 [![CI](https://github.com/bilalcaliskan/nginx-conf-generator/workflows/CI/badge.svg?event=push)](https://github.com/bilalcaliskan/nginx-conf-generator/actions?query=workflow%3ACI)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bilalcaliskan/nginx-conf-generator)](https://goreportcard.com/report/github.com/bilalcaliskan/nginx-conf-generator)
 [![codecov](https://codecov.io/gh/bilalcaliskan/nginx-conf-generator/branch/master/graph/badge.svg)](https://codecov.io/gh/bilalcaliskan/nginx-conf-generator)
+[![Release](https://img.shields.io/github/release/bilalcaliskan/nginx-conf-generator.svg)](https://github.com/bilalcaliskan/nginx-conf-generator/releases/latest)
+[![Go version](https://img.shields.io/github/go-mod/go-version/bilalcaliskan/nginx-conf-generator)](https://github.com/bilalcaliskan/nginx-conf-generator)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 That tool uses [client-go](https://github.com/kubernetes/client-go) to communicate with multi Kubernetes clusters and
 gets the port of NodePort type service which contains specific annotation. Then modifies
@@ -46,5 +49,9 @@ $ ./nginx-conf-generator --kubeConfigPaths ~/.kube/config1,~/.kube/config2 --cus
 
 ## Development
 This project requires below tools while developing:
+- [Golang 1.16](https://golang.org/doc/go1.16)
 - [pre-commit](https://pre-commit.com/)
 - [golangci-lint](https://golangci-lint.run/usage/install/) - required by [pre-commit](https://pre-commit.com/)
+
+## License
+Apache License 2.0
