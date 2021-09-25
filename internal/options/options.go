@@ -2,6 +2,7 @@ package options
 
 import (
 	"github.com/spf13/pflag"
+	"os"
 	"path/filepath"
 )
 
@@ -41,7 +42,7 @@ func GetNginxConfGeneratorOptions() *NginxConfGeneratorOptions {
 
 func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 	// filepath.Join(os.Getenv("HOME")
-	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join("/home/joshsagredo", ".kube", "config"),
+	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
 		"comma separated list of kubeconfig file paths to access with the cluster")
 	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "node-role.kubernetes.io/master", "label to specify "+
 		"worker nodes, defaults to node-role.k8s.io/worker=")
