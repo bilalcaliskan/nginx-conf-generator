@@ -20,15 +20,15 @@ Also nginx-conf-generator needs to reload nginx process when necessary, you must
 ## Configuration
 nginx-conf-generator can be customized with several command line arguments:
 ```
---kubeConfigPaths       comma separated list of kubeconfig file paths to access with the cluster, defaults to ~/.kube.config
---workerNodeLabel       label to specify worker nodes, defaults to node-role.k8s.io/worker=
---customAnnotation      annotation to specify selectable services, defaults to nginx-conf-generator/enabled
---templateInputFile     input path of the template file, defaults to ./resources/default.conf.tmpl
---templateOutputFile    output path of the template file, defaults to /etc/nginx/sites-enabled/default
---metricsPort           port of the metrics server, defaults to 5000
---writeTimeoutSeconds   write timeout of the metrics server, defaults to 10
---readTimeoutSeconds    read timeout of the metrics server, defaults to 10
---metricsEndpoint       endpoint to provide prometheus metrics, defaults to /metrics
+--kubeConfigPaths       string      comma separated list of kubeconfig file paths to access with the cluster, defaults to ~/.kube.config
+--workerNodeLabel       string      label to specify worker nodes, defaults to node-role.k8s.io/worker=
+--customAnnotation      string      annotation to specify selectable services, defaults to nginx-conf-generator/enabled
+--templateInputFile     string      input path of the template file, defaults to ./resources/default.conf.tmpl
+--templateOutputFile    string      output path of the template file, defaults to /etc/nginx/sites-enabled/default
+--metricsPort           int         port of the metrics server, defaults to 5000
+--writeTimeoutSeconds   int         write timeout of the metrics server, defaults to 10
+--readTimeoutSeconds    int         read timeout of the metrics server, defaults to 10
+--metricsEndpoint       string      endpoint to provide prometheus metrics, defaults to /metrics
 ```
 
 > That tool should be run on a Linux host and the user who runs the binary file nginx-conf-generator
