@@ -1,6 +1,7 @@
 # Nginx Conf Generator
 [![CI](https://github.com/bilalcaliskan/nginx-conf-generator/workflows/CI/badge.svg?event=push)](https://github.com/bilalcaliskan/nginx-conf-generator/actions?query=workflow%3ACI)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bilalcaliskan/nginx-conf-generator)](https://goreportcard.com/report/github.com/bilalcaliskan/nginx-conf-generator)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=bilalcaliskan_nginx-conf-generator&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=bilalcaliskan_nginx-conf-generator)
 [![codecov](https://codecov.io/gh/bilalcaliskan/nginx-conf-generator/branch/master/graph/badge.svg)](https://codecov.io/gh/bilalcaliskan/nginx-conf-generator)
 [![Release](https://img.shields.io/github/release/bilalcaliskan/nginx-conf-generator.svg)](https://github.com/bilalcaliskan/nginx-conf-generator/releases/latest)
 [![Go version](https://img.shields.io/github/go-mod/go-version/bilalcaliskan/nginx-conf-generator)](https://github.com/bilalcaliskan/nginx-conf-generator)
