@@ -32,8 +32,6 @@ func init() {
 }
 
 func main() {
-	// TODO: Unit testing!
-
 	defer func() {
 		err := logger.Sync()
 		if err != nil {
