@@ -60,7 +60,12 @@ func main() {
 		k8s.RunServiceInformer(cluster, clientSet, ncgo, nginxConf)
 	}
 
-	go metrics.RunMetricsServer()
+	go func() {
+		if err := metrics.RunMetricsServer(); err != nil {
+			logger.Fatal("fatal error occurred while spinning up metrics server",
+				zap.String("error", err.Error()))
+		}
+	}()
 
 	select {}
 }

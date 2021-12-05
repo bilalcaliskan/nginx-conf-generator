@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	ProcessedNodePortCounterName = "processed_nodeport_counter"
+	TargetNodePortCounterName    = "target_node_counter"
+)
+
 var (
 	logger *zap.Logger
 	opts   *options.NginxConfGeneratorOptions
@@ -25,24 +30,17 @@ func init() {
 	logger = logging.GetLogger()
 	opts = options.GetNginxConfGeneratorOptions()
 	ProcessedNodePortCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "processed_nodeport_counter",
+		Name: ProcessedNodePortCounterName,
 		Help: "Counts processed nodeport type services",
 	})
 	TargetNodeCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "target_node_counter",
+		Name: TargetNodePortCounterName,
 		Help: "Counts target nodes on the managed clusters",
 	})
 }
 
 // RunMetricsServer spins up a router to provide prometheus metrics
-func RunMetricsServer() {
-	defer func() {
-		err := logger.Sync()
-		if err != nil {
-			panic(err)
-		}
-	}()
-
+func RunMetricsServer() error {
 	router := mux.NewRouter()
 	metricServer := &http.Server{
 		Handler:      router,
@@ -54,5 +52,5 @@ func RunMetricsServer() {
 	prometheus.MustRegister(ProcessedNodePortCounter)
 	prometheus.MustRegister(TargetNodeCounter)
 	logger.Info("metric server is up and running", zap.Int("port", opts.MetricsPort))
-	panic(metricServer.ListenAndServe())
+	return metricServer.ListenAndServe()
 }
