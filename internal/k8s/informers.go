@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"fmt"
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -40,7 +39,6 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 
 				// add Worker to cluster.Workers slice
 				addWorker(&cluster.Workers, worker)
-				logger.Debug(fmt.Sprintf("final cluster.Workers after add operation: %v\n", cluster.Workers))
 				metrics.TargetNodeCounter.Add(1)
 
 				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
@@ -49,15 +47,15 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
-					logger.Fatal("an error occurred while rendering template", zap.Error(err))
+					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
 
 				// reload Nginx service
 				err = reloadNginx()
 				if err != nil {
-					logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 				} else {
-					logger.Info("successfully reloaded Nginx service")
+					logger.Info(SuccessNginxReload)
 				}
 			}
 		},
@@ -80,7 +78,6 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 						logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						removeWorker(&cluster.Workers, oldWorkerIndex)
-						logger.Debug(fmt.Sprintf("final cluster.Workers after delete operation: %v\n", cluster.Workers))
 
 						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
@@ -90,15 +87,15 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 						// Apply changes to the template
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 						if err != nil {
-							logger.Fatal("an error occurred while rendering template", zap.Error(err))
+							logger.Fatal(ErrRenderTemplate, zap.Error(err))
 						}
 
 						// reload Nginx service
 						err = reloadNginx()
 						if err != nil {
-							logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+							logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 						} else {
-							logger.Info("successfully reloaded Nginx service")
+							logger.Info(SuccessNginxReload)
 						}
 					}
 				} else {
@@ -106,7 +103,6 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 						logger.Info("node is now healthy and labeled, adding to the cluster.Workers slice",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						addWorker(&cluster.Workers, newWorker)
-						logger.Debug(fmt.Sprintf("final cluster.Workers after add operation: %v\n", cluster.Workers))
 
 						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
@@ -115,15 +111,15 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 						// Apply changes to the template
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 						if err != nil {
-							logger.Fatal("an error occurred while rendering template", zap.Error(err))
+							logger.Fatal(ErrRenderTemplate, zap.Error(err))
 						}
 
 						// reload Nginx service
 						err = reloadNginx()
 						if err != nil {
-							logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+							logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 						} else {
-							logger.Info("successfully reloaded Nginx service")
+							logger.Info(SuccessNginxReload)
 						}
 					} else {
 						logger.Info("node is still unhealthy or unlabelled, skipping...",
@@ -145,26 +141,24 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 				removeWorker(&cluster.Workers, index)
 				logger.Info("successfully removed node from cluster.Workers slice!",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
-				logger.Debug(fmt.Sprintf("final cluster.Workers = %v\n", cluster.Workers))
 
 				removeWorkerFromNodePorts(&cluster.NodePorts, worker)
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
-				logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 				metrics.TargetNodeCounter.Add(-1)
 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
-					logger.Fatal("an error occurred while rendering template", zap.Error(err))
+					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
 
 				// reload Nginx service
 				err = reloadNginx()
 				if err != nil {
-					logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 				} else {
-					logger.Info("successfully reloaded Nginx service")
+					logger.Info(SuccessNginxReload)
 				}
 			} else {
 				logger.Info("node not found in the cluster.workers, skipping remove operation",
@@ -210,15 +204,15 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
-					logger.Fatal("an error occurred while rendering template", zap.Error(err))
+					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
 
 				// reload Nginx service
 				err = reloadNginx()
 				if err != nil {
-					logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 				} else {
-					logger.Info("successfully reloaded Nginx service")
+					logger.Info(SuccessNginxReload)
 				}
 			} else {
 				logger.Info("service is not valid, it is not annotated or not a nodePort type service",
@@ -251,7 +245,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 								zap.String("namespace", oldService.Namespace), zap.Int32("oldNodePort", oldNodePort.Port),
 								zap.Int32("newNodePort", newNodePort.Port))
 							updateNodePort(&cluster.NodePorts, cluster.Workers, oldNodePort, newNodePort)
-							logger.Debug(fmt.Sprintf("final cluster.NodePorts after update operation: %v\n", cluster.NodePorts))
 						} else {
 							logger.Info("nodePort ports are the same on the updated service, nothing to do",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
@@ -269,7 +262,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 							logger.Info("successfully removed service from cluster.NodePorts",
 								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 								zap.String("namespace", oldService.Namespace))
-							logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 						}
 					}
 				} else {
@@ -283,7 +275,6 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 						logger.Info("successfully removed service from cluster.NodePorts",
 							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
 							zap.String("namespace", oldService.Namespace))
-						logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 					}
 
 					if newOk && newService.Spec.Type == "NodePort" {
@@ -311,15 +302,15 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 				if err != nil {
-					logger.Fatal("an error occurred while rendering template", zap.Error(err))
+					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
 
 				// reload Nginx service
 				err = reloadNginx()
 				if err != nil {
-					logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 				} else {
-					logger.Info("successfully reloaded Nginx service")
+					logger.Info(SuccessNginxReload)
 				}
 			}
 		},
@@ -341,22 +332,21 @@ func RunServiceInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo 
 					logger.Info("successfully removed deleted service from cluster.NodePorts",
 						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
 						zap.String("namespace", service.Namespace))
-					logger.Debug(fmt.Sprintf("final cluster.NodePorts after delete operation: %v\n", cluster.NodePorts))
 				}
 			}
 
 			// Apply changes to the template
 			err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
 			if err != nil {
-				logger.Fatal("an error occurred while rendering template", zap.Error(err))
+				logger.Fatal(ErrRenderTemplate, zap.Error(err))
 			}
 
 			// reload Nginx service
 			err = reloadNginx()
 			if err != nil {
-				logger.Fatal("an error occurred while reloading Nginx service", zap.String("error", err.Error()))
+				logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
 			} else {
-				logger.Info("successfully reloaded Nginx service")
+				logger.Info(SuccessNginxReload)
 			}
 		},
 	})
