@@ -50,7 +50,7 @@ $ ./nginx-conf-generator --kubeConfigPaths ~/.kube/config1,~/.kube/config2 --cus
 
 ## Development
 This project requires below tools while developing:
-- [Golang 1.16](https://golang.org/doc/go1.16)
+- [Golang 1.17](https://golang.org/doc/go1.17)
 - [pre-commit](https://pre-commit.com/)
 - [golangci-lint](https://golangci-lint.run/usage/install/) - required by [pre-commit](https://pre-commit.com/)
 
