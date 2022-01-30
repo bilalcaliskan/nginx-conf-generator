@@ -35,10 +35,12 @@ func getFakeAPI() *FakeAPI {
 }
 
 func (fAPI *FakeAPI) deleteNode(name string) error {
-	gracePeriodSeconds := int64(0)
+	// node, _ := fAPI.getNode(name)
+
+	// gracePeriodSeconds := int64(0)
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
-	return fAPI.ClientSet.CoreV1().Nodes().Delete(ctx, name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriodSeconds})
+	return fAPI.ClientSet.CoreV1().Nodes().Delete(ctx, name, metav1.DeleteOptions{})
 }
 
 func (fAPI *FakeAPI) updateNode(name string) (*v1.Node, error) {
@@ -126,16 +128,67 @@ func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
 	return node, nil
 }
 
-func TestRunNodeInformer(t *testing.T) {
+func TestRunNodeInformerCase1(t *testing.T) {
+	/*
+	- new node added with required label and required node status
+	- this particular node deleted
+	*/
+
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
 	ncgo.TemplateInputFile = "../../resources/default.conf.tmpl"
-	ncgo.TemplateOutputFile = "../../default"
+	cluster := NewCluster("", make([]*Worker, 0))
+	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		cluster := NewCluster("", make([]*Worker, 0))
-		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+		RunNodeInformer(cluster, api.ClientSet, ncgo, nginxConf)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		pod, err := api.createNode("node01")
+		assert.Nil(t, err)
+		assert.NotNil(t, pod)
+	}()
+	wg.Wait()
+
+	time.Sleep(5 * time.Second)
+
+	node, _ := api.getNode("node01")
+	worker := NewWorker("", node.Name, "True")
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := api.deleteNode("node01")
+		assert.Nil(t, err)
+	}()
+	wg.Wait()
+
+	for {
+		_, found := findWorker(cluster.Workers, *worker)
+		if !found {
+			break
+		}
+	}
+}
+
+func TestRunNodeInformerCase2(t *testing.T) {
+	/*
+	- new node added with required label and required node status
+	- this particular node's node status updated as NotReady
+	*/
+	api := getFakeAPI()
+	assert.NotNil(t, api)
+
+	ncgo.TemplateInputFile = "../../resources/default.conf.tmpl"
+	cluster := NewCluster("", make([]*Worker, 0))
+	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+
+	go func() {
 		RunNodeInformer(cluster, api.ClientSet, ncgo, nginxConf)
 	}()
 
@@ -154,17 +207,6 @@ func TestRunNodeInformer(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		createdNode, err := api.getNode("node01")
-		assert.NotNil(t, createdNode)
-		assert.Nil(t, err)
-	}()
-	wg.Wait()
-
-	time.Sleep(2 * time.Second)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
 		updatedNode, err := api.updateNode("node01")
 		assert.NotNil(t, updatedNode)
 		assert.Nil(t, err)
@@ -173,6 +215,9 @@ func TestRunNodeInformer(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
+	node, _ := api.getNode("node01")
+	worker := NewWorker("", node.Name, "True")
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -180,4 +225,11 @@ func TestRunNodeInformer(t *testing.T) {
 		assert.Nil(t, err)
 	}()
 	wg.Wait()
+
+	for {
+		_, found := findWorker(cluster.Workers, *worker)
+		if !found {
+			break
+		}
+	}
 }
