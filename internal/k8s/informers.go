@@ -22,7 +22,7 @@ func init() {
 }
 
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
-func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *options.NginxConfGeneratorOptions,
+func RunNodeInformer(cluster *Cluster, clientSet kubernetes.Interface, ncgo *options.NginxConfGeneratorOptions,
 	nginxConf *NginxConf) {
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
@@ -39,7 +39,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 
 				// add Worker to cluster.Workers slice
 				addWorker(&cluster.Workers, worker)
-				metrics.TargetNodeCounter.Add(1)
+				metrics.TargetNodeCounter.Inc()
 
 				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
 				addWorkerToNodePorts(cluster.NodePorts, worker)
@@ -82,7 +82,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
-						metrics.TargetNodeCounter.Add(-1)
+						metrics.TargetNodeCounter.Desc()
 
 						// Apply changes to the template
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -106,7 +106,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 
 						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
 						addWorkerToNodePorts(cluster.NodePorts, newWorker)
-						metrics.TargetNodeCounter.Add(1)
+						metrics.TargetNodeCounter.Inc()
 
 						// Apply changes to the template
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -145,7 +145,7 @@ func RunNodeInformer(cluster *Cluster, clientSet *kubernetes.Clientset, ncgo *op
 				removeWorkerFromNodePorts(&cluster.NodePorts, worker)
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
-				metrics.TargetNodeCounter.Add(-1)
+				metrics.TargetNodeCounter.Desc()
 
 				// Apply changes to the template
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
