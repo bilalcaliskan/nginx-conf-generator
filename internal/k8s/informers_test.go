@@ -169,6 +169,8 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	wg.Wait()
 
 	for {
+		time.Sleep(10 * time.Second)
+
 		_, found := findWorker(cluster.Workers, *worker)
 		if !found {
 			break
@@ -227,6 +229,8 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	wg.Wait()
 
 	for {
+		time.Sleep(10 * time.Second)
+
 		_, found := findWorker(cluster.Workers, *worker)
 		if !found {
 			break
