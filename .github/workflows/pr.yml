@@ -58,9 +58,18 @@ jobs:
           go-version: 1.17.x
       - name: Install Nginx
         run: |
-          sudo apt update
-          sudo apt install nginx
-          sudo service nginx start
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt update
+            sudo apt install nginx
+            sudo nginx
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install nginx
+            sudo nginx
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
+          fi
+        shell: bash
       - name: Test
         run: make test
 
@@ -96,9 +105,18 @@ jobs:
           go-version: 1.17.x
       - name: Install Nginx
         run: |
-          apt update
-          apt install nginx
-          service nginx start
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            sudo apt update
+            sudo apt install nginx
+            sudo nginx
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install nginx
+            sudo nginx
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
+          fi
+        shell: bash
       - name: Coverage Test
         run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic
       - name: SonarCloud Scan
