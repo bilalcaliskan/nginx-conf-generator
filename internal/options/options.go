@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 var nginxConfGeneratorOptions = &NginxConfGeneratorOptions{}
@@ -33,6 +34,7 @@ type NginxConfGeneratorOptions struct {
 	ReadTimeoutSeconds int
 	// MetricsEndpoint is the endpoint to consume prometheus metrics
 	MetricsEndpoint string
+	Mu              sync.Mutex
 }
 
 // GetNginxConfGeneratorOptions returns the pointer of NginxConfGeneratorOptions

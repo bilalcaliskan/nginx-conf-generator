@@ -1,6 +1,8 @@
 package types
 
-import v1 "k8s.io/api/core/v1"
+import (
+	v1 "k8s.io/api/core/v1"
+)
 
 // Worker is the logical representation of the k8s worker nodes
 type Worker struct {

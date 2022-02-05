@@ -16,10 +16,8 @@ import (
 )
 
 var (
-	clusters  []*types.Cluster
-	nginxConf = types.NewNginxConf(clusters)
-	ncgo      = options.GetNginxConfGeneratorOptions()
 	parentCtx = context.Background()
+	opts      = options.GetNginxConfGeneratorOptions()
 )
 
 type FakeAPI struct {
@@ -132,16 +130,20 @@ func TestRunNodeInformerCase1(t *testing.T) {
 		- new node added with required label and required node status
 		- this particular node deleted
 	*/
-
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
-	ncgo.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Lock()
+	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Unlock()
+
+	var clusters []*types.Cluster
+	nginxConf := types.NewNginxConf(clusters)
 	cluster := types.NewCluster("", make([]*types.Worker, 0))
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, ncgo, nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, opts, nginxConf)
 	}()
 
 	var wg sync.WaitGroup
@@ -154,10 +156,9 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	}()
 	wg.Wait()
 
-	time.Sleep(5 * time.Second)
-
-	node, _ := api.getNode("node01")
-	worker := types.NewWorker("", node.Name, "True")
+	node, err := api.getNode("node01")
+	assert.Nil(t, err)
+	assert.NotNil(t, node)
 
 	wg.Add(1)
 	go func() {
@@ -167,8 +168,11 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	}()
 	wg.Wait()
 
+	worker := types.NewWorker("", node.Name, "True")
 	for {
+		cluster.Mu.Lock()
 		_, found := findWorker(cluster.Workers, *worker)
+		cluster.Mu.Unlock()
 		if !found {
 			break
 		}
@@ -183,13 +187,17 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
-	ncgo = options.GetNginxConfGeneratorOptions()
-	ncgo.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Lock()
+	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Unlock()
+
+	var clusters []*types.Cluster
+	nginxConf := types.NewNginxConf(clusters)
 	cluster := types.NewCluster("", make([]*types.Worker, 0))
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, ncgo, nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, opts, nginxConf)
 	}()
 
 	var wg sync.WaitGroup
@@ -213,7 +221,9 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	}()
 	wg.Wait()
 
-	time.Sleep(2 * time.Second)
+	node, err := api.getNode("node01")
+	assert.Nil(t, err)
+	assert.NotNil(t, node)
 
 	wg.Add(1)
 	go func() {
@@ -223,13 +233,13 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	}()
 	wg.Wait()
 
-	time.Sleep(10 * time.Second)
-
-	// worker := NewWorker("", api.getNode("node01").Name, "True")
-	/*for {
+	worker := types.NewWorker("", node.Name, "True")
+	for {
+		cluster.Mu.Lock()
 		_, found := findWorker(cluster.Workers, *worker)
+		cluster.Mu.Unlock()
 		if !found {
 			break
 		}
-	}*/
+	}
 }

@@ -45,7 +45,9 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
+				ncgo.Mu.Lock()
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+				ncgo.Mu.Unlock()
 				if err != nil {
 					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
@@ -77,15 +79,17 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 					} else {
 						logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
-						removeWorker(&cluster.Workers, oldWorkerIndex)
+						removeWorker(cluster, oldWorkerIndex)
 
-						removeWorkerFromNodePorts(&cluster.NodePorts, oldWorker)
+						removeWorkerFromNodePorts(cluster, oldWorker)
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						metrics.TargetNodeCounter.Desc()
 
 						// Apply changes to the template
+						ncgo.Mu.Lock()
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+						ncgo.Mu.Unlock()
 						if err != nil {
 							logger.Fatal(ErrRenderTemplate, zap.Error(err))
 						}
@@ -109,7 +113,9 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 						metrics.TargetNodeCounter.Inc()
 
 						// Apply changes to the template
+						ncgo.Mu.Lock()
 						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+						ncgo.Mu.Unlock()
 						if err != nil {
 							logger.Fatal(ErrRenderTemplate, zap.Error(err))
 						}
@@ -138,17 +144,19 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 			if found {
 				logger.Info("node found in the cluster.Workers, removing...",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
-				removeWorker(&cluster.Workers, index)
+				removeWorker(cluster, index)
 				logger.Info("successfully removed node from cluster.Workers slice!",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 
-				removeWorkerFromNodePorts(&cluster.NodePorts, worker)
+				removeWorkerFromNodePorts(cluster, worker)
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				metrics.TargetNodeCounter.Desc()
 
 				// Apply changes to the template
+				ncgo.Mu.Lock()
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+				ncgo.Mu.Unlock()
 				if err != nil {
 					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}

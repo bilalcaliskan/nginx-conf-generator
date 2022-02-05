@@ -1,13 +1,11 @@
 package informers
 
 import (
-	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"nginx-conf-generator/internal/k8s/types"
-	"os"
 )
 
 //////////////////////////////////// Worker Related Functions ////////////////////////////////////
@@ -18,8 +16,10 @@ func addWorker(slice *[]*types.Worker, worker *types.Worker) {
 	}
 }
 
-func removeWorker(workers *[]*types.Worker, index int) {
-	*workers = append((*workers)[:index], (*workers)[index+1:]...)
+func removeWorker(cluster *types.Cluster, index int) {
+	cluster.Mu.Lock()
+	cluster.Workers = append((cluster.Workers)[:index], (cluster.Workers)[index+1:]...)
+	cluster.Mu.Unlock()
 }
 
 func findWorker(workers []*types.Worker, worker types.Worker) (int, bool) {
@@ -52,11 +52,12 @@ func addWorkerToNodePorts(nodePorts []*types.NodePort, worker *types.Worker) {
 	}
 }
 
-func removeWorkerFromNodePorts(nodePorts *[]*types.NodePort, worker *types.Worker) {
-	for _, v := range *nodePorts {
+func removeWorkerFromNodePorts(cluster *types.Cluster, worker *types.Worker) {
+	// nodePorts *[]*types.NodePort, worker *types.Worker
+	for _, v := range cluster.NodePorts {
 		index, found := findWorker(v.Workers, *worker)
 		if found {
-			removeWorker(&v.Workers, index)
+			removeWorker(cluster, index)
 		}
 	}
 }
@@ -136,7 +137,7 @@ func reloadNginx() error {
 }
 
 func renderTemplate(templateInputFile, templateOutputFile string, data interface{}) error {
-	tpl := template.Must(template.ParseFiles(templateInputFile))
+	/*tpl := template.Must(template.ParseFiles(templateInputFile))
 	f, err := os.Create(templateOutputFile)
 	if err != nil {
 		return err
@@ -150,7 +151,7 @@ func renderTemplate(templateInputFile, templateOutputFile string, data interface
 	err = f.Close()
 	if err != nil {
 		return err
-	}
+	}*/
 
 	return nil
 }
