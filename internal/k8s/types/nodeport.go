@@ -3,6 +3,7 @@ package types
 type NodePort struct {
 	MasterIP string
 	Port     int32
+	Workers  []*Worker
 }
 
 func NewNodePort(masterIP string, port int32) *NodePort {

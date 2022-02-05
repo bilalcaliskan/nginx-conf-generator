@@ -33,6 +33,9 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				addWorker(&cluster.Workers, worker)
 				metrics.TargetNodeCounter.Inc()
 
+				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
+				addWorkerToNodePorts(cluster.NodePorts, worker)
+
 				// Apply changes to the template
 				ncgo.Mu.Lock()
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
@@ -69,6 +72,8 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 							zap.String("node", oldWorker.HostIP))
 						removeWorker(cluster, oldWorkerIndex)
 
+						removeWorkerFromNodePorts(cluster, oldWorker)
+
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 							zap.String("node", oldWorker.HostIP))
 						metrics.TargetNodeCounter.Desc()
@@ -95,7 +100,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 						addWorker(&cluster.Workers, newWorker)
 
 						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
-						// addWorkerToNodePorts(cluster.NodePorts, newWorker)
+						addWorkerToNodePorts(cluster.NodePorts, newWorker)
 						metrics.TargetNodeCounter.Inc()
 
 						// Apply changes to the template
@@ -130,6 +135,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				removeWorker(cluster, index)
 				logger.Info("successfully removed node from cluster.Workers slice!", zap.String("node", worker.HostIP))
 
+				removeWorkerFromNodePorts(cluster, worker)
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts", zap.String("node", worker.HostIP))
 				metrics.TargetNodeCounter.Desc()
 

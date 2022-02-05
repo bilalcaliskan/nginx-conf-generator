@@ -13,3 +13,8 @@ func TestGetLogger(t *testing.T) {
 	t.Log("will try logger for debugging")
 	logger.Info("this is a test log by *zap.Logger!")
 }
+
+func TestNewLogger(t *testing.T) {
+	logger := NewLogger()
+	assert.NotNil(t, logger)
+}

@@ -46,8 +46,8 @@ func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 	// filepath.Join(os.Getenv("HOME")
 	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
 		"comma separated list of kubeconfig file paths to access with the cluster")
-	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify "+
-		"worker nodes, defaults to node-role.k8s.io/worker=")
+	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "worker", "label to specify "+
+		"worker nodes, defaults to worker")
 	flag.StringVar(&ncgo.CustomAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
 		"selectable services")
 	flag.StringVar(&ncgo.TemplateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input "+

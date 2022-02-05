@@ -1,14 +1,43 @@
 package informers
 
 import (
+	"html/template"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"nginx-conf-generator/internal/k8s/types"
+	"os"
+	"os/exec"
 )
 
-//////////////////////////////////// Worker Related Functions ////////////////////////////////////
+func addWorkerToNodePorts(nodePorts []*types.NodePort, worker *types.Worker) {
+	for _, v := range nodePorts {
+		_, found := findWorker(v.Workers, *worker)
+		if !found {
+			addWorker(&v.Workers, worker)
+		}
+	}
+}
+
+func removeWorkerFromNodePorts(cluster *types.Cluster, worker *types.Worker) {
+	for _, v := range cluster.NodePorts {
+		index, found := findWorker(v.Workers, *worker)
+		if found {
+			removeWorker(cluster, index)
+		}
+	}
+}
+
+func addWorkersToNodePort(workers []*types.Worker, nodePort *types.NodePort) {
+	for _, v := range workers {
+		_, found := findWorker(nodePort.Workers, *v)
+		if !found {
+			addWorker(&nodePort.Workers, v)
+		}
+	}
+}
+
 func addWorker(slice *[]*types.Worker, worker *types.Worker) {
 	_, found := findWorker(*slice, *worker)
 	if !found {
@@ -31,43 +60,34 @@ func findWorker(workers []*types.Worker, worker types.Worker) (int, bool) {
 	return -1, false
 }
 
-//////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////// NodePort Related Functions ////////////////////////////////////
-func addNodePort(workers []*types.Worker, nodePort *types.NodePort) {
-	for _, v := range workers {
-		if !v.HasNodePort(nodePort) {
-			v.NodePorts = append(v.NodePorts, nodePort)
-		}
+func addNodePort(nodePorts *[]*types.NodePort, nodePort *types.NodePort) {
+	_, found := findNodePort(*nodePorts, *nodePort)
+	if !found {
+		*nodePorts = append(*nodePorts, nodePort)
 	}
 }
 
-func findNodePort(workers []*types.Worker, nodePort *types.NodePort) (int, bool) {
-	for i, worker := range workers {
-		if worker.HasNodePort(nodePort) {
+func findNodePort(nodePorts []*types.NodePort, nodePort types.NodePort) (int, bool) {
+	for i, item := range nodePorts {
+		if nodePort.Equals(item) {
 			return i, true
 		}
 	}
 	return -1, false
 }
 
-func removeNodePort(workers *[]*types.Worker, index int) {
-	for _, item := range *workers {
-		item.NodePorts = append((item.NodePorts)[:index], (item.NodePorts)[index+1:]...)
-	}
+func removeNodePort(nodePorts *[]*types.NodePort, index int) {
+	*nodePorts = append((*nodePorts)[:index], (*nodePorts)[index+1:]...)
 }
 
-func updateNodePort(workers []*types.Worker, oldNodePort *types.NodePort, newNodePort *types.NodePort) {
-	oldIndex, oldFound := findNodePort(workers, oldNodePort)
+func updateNodePort(nodePorts *[]*types.NodePort, workers []*types.Worker, oldNodePort *types.NodePort, newNodePort *types.NodePort) {
+	oldIndex, oldFound := findNodePort(*nodePorts, *oldNodePort)
 	if oldFound {
-		removeNodePort(&workers, oldIndex)
+		removeNodePort(nodePorts, oldIndex)
 	}
-	addNodePort(workers, newNodePort)
+	addWorkersToNodePort(workers, newNodePort)
+	addNodePort(nodePorts, newNodePort)
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////// Common Utility Functions ////////////////////////////////////
 
 // GetConfig creates a rest.Config and returns it
 func GetConfig(kubeConfigPath string) (*rest.Config, error) {
@@ -101,17 +121,17 @@ func isNodeReady(node *v1.Node) v1.ConditionStatus {
 }
 
 func reloadNginx() error {
-	/*cmd := exec.Command("nginx", "-s", "reload")
+	cmd := exec.Command("nginx", "-s", "reload")
 	err := cmd.Run()
 	if err != nil {
 		return err
-	}*/
+	}
 
 	return nil
 }
 
 func renderTemplate(templateInputFile, templateOutputFile string, data interface{}) error {
-	/*tpl := template.Must(template.ParseFiles(templateInputFile))
+	tpl := template.Must(template.ParseFiles(templateInputFile))
 	f, err := os.Create(templateOutputFile)
 	if err != nil {
 		return err
@@ -125,9 +145,7 @@ func renderTemplate(templateInputFile, templateOutputFile string, data interface
 	err = f.Close()
 	if err != nil {
 		return err
-	}*/
+	}
 
 	return nil
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////

@@ -71,12 +71,12 @@ func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				"beta.kubernetes.io/arch":        "amd64",
-				"beta.kubernetes.io/os":          "linux",
-				"kubernetes.io/arch":             "amd64",
-				"kubernetes.io/hostname":         name,
-				"kubernetes.io/os":               "linux",
-				"node-role.kubernetes.io/worker": "",
+				"beta.kubernetes.io/arch": "amd64",
+				"beta.kubernetes.io/os":   "linux",
+				"kubernetes.io/arch":      "amd64",
+				"kubernetes.io/hostname":  name,
+				"kubernetes.io/os":        "linux",
+				"worker":                  "",
 			},
 		},
 		Spec: v1.NodeSpec{
