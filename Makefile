@@ -13,7 +13,7 @@ ineffassign:
 	ineffassign ./...
 
 test:
-	go test -race -exec sudo ./...
+	go test -race -exec sudo ./... -p 1
 
 build:
 	go build -o bin/main cmd/nginx-conf-generator/main.go

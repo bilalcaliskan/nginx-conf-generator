@@ -34,61 +34,35 @@ func findWorker(workers []*types.Worker, worker types.Worker) (int, bool) {
 //////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////// NodePort Related Functions ////////////////////////////////////
-func addWorkersToNodePort(workers []*types.Worker, nodePort *types.NodePort) {
+func addNodePort(workers []*types.Worker, nodePort *types.NodePort) {
 	for _, v := range workers {
-		_, found := findWorker(nodePort.Workers, *v)
-		if !found {
-			addWorker(&nodePort.Workers, v)
+		if !v.HasNodePort(nodePort) {
+			v.NodePorts = append(v.NodePorts, nodePort)
 		}
 	}
 }
 
-func addWorkerToNodePorts(nodePorts []*types.NodePort, worker *types.Worker) {
-	for _, v := range nodePorts {
-		_, found := findWorker(v.Workers, *worker)
-		if !found {
-			addWorker(&v.Workers, worker)
-		}
-	}
-}
-
-func removeWorkerFromNodePorts(cluster *types.Cluster, worker *types.Worker) {
-	// nodePorts *[]*types.NodePort, worker *types.Worker
-	for _, v := range cluster.NodePorts {
-		index, found := findWorker(v.Workers, *worker)
-		if found {
-			removeWorker(cluster, index)
-		}
-	}
-}
-
-func addNodePort(nodePorts *[]*types.NodePort, nodePort *types.NodePort) {
-	_, found := findNodePort(*nodePorts, *nodePort)
-	if !found {
-		*nodePorts = append(*nodePorts, nodePort)
-	}
-}
-
-func findNodePort(nodePorts []*types.NodePort, nodePort types.NodePort) (int, bool) {
-	for i, item := range nodePorts {
-		if nodePort.Equals(item) {
+func findNodePort(workers []*types.Worker, nodePort *types.NodePort) (int, bool) {
+	for i, worker := range workers {
+		if worker.HasNodePort(nodePort) {
 			return i, true
 		}
 	}
 	return -1, false
 }
 
-func removeNodePort(nodePorts *[]*types.NodePort, index int) {
-	*nodePorts = append((*nodePorts)[:index], (*nodePorts)[index+1:]...)
+func removeNodePort(workers *[]*types.Worker, index int) {
+	for _, item := range *workers {
+		item.NodePorts = append((item.NodePorts)[:index], (item.NodePorts)[index+1:]...)
+	}
 }
 
-func updateNodePort(nodePorts *[]*types.NodePort, workers []*types.Worker, oldNodePort *types.NodePort, newNodePort *types.NodePort) {
-	oldIndex, oldFound := findNodePort(*nodePorts, *oldNodePort)
+func updateNodePort(workers []*types.Worker, oldNodePort *types.NodePort, newNodePort *types.NodePort) {
+	oldIndex, oldFound := findNodePort(workers, oldNodePort)
 	if oldFound {
-		removeNodePort(nodePorts, oldIndex)
+		removeNodePort(&workers, oldIndex)
 	}
-	addWorkersToNodePort(workers, newNodePort)
-	addNodePort(nodePorts, newNodePort)
+	addNodePort(workers, newNodePort)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

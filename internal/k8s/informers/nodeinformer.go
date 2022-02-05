@@ -42,7 +42,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 				metrics.TargetNodeCounter.Inc()
 
 				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
-				addWorkerToNodePorts(cluster.NodePorts, worker)
+				// addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
 				ncgo.Mu.Lock()
@@ -81,7 +81,6 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						removeWorker(cluster, oldWorkerIndex)
 
-						removeWorkerFromNodePorts(cluster, oldWorker)
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
 						metrics.TargetNodeCounter.Desc()
@@ -109,7 +108,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 						addWorker(&cluster.Workers, newWorker)
 
 						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
-						addWorkerToNodePorts(cluster.NodePorts, newWorker)
+						// addWorkerToNodePorts(cluster.NodePorts, newWorker)
 						metrics.TargetNodeCounter.Inc()
 
 						// Apply changes to the template
@@ -148,7 +147,6 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 				logger.Info("successfully removed node from cluster.Workers slice!",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 
-				removeWorkerFromNodePorts(cluster, worker)
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
 				metrics.TargetNodeCounter.Desc()
