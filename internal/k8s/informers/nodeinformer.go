@@ -8,22 +8,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/logging"
 	"nginx-conf-generator/internal/metrics"
 	"nginx-conf-generator/internal/options"
 	"time"
 )
 
-var (
-	logger *zap.Logger
-)
-
-func init() {
-	logger = logging.GetLogger()
-}
-
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
-func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncgo *options.NginxConfGeneratorOptions, nginxConf *types.NginxConf) {
+func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, ncgo *options.NginxConfGeneratorOptions,
+	nginxConf *types.NginxConf) {
+
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -33,16 +26,12 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 			nodeReady := isNodeReady(node)
 
 			if ok && nodeReady == "True" {
-				logger.Info("adding node to the cluster.Workers",
-					zap.String("masterIP", cluster.MasterIP), zap.String("node", node.Status.Addresses[0].Address))
+				logger.Info("adding node to the cluster.Workers", zap.String("node", node.Status.Addresses[0].Address))
 				worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 
 				// add Worker to cluster.Workers slice
 				addWorker(&cluster.Workers, worker)
 				metrics.TargetNodeCounter.Inc()
-
-				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
-				// addWorkerToNodePorts(cluster.NodePorts, worker)
 
 				// Apply changes to the template
 				ncgo.Mu.Lock()
@@ -53,12 +42,11 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 				}
 
 				// reload Nginx service
-				err = reloadNginx()
-				if err != nil {
+				if err = reloadNginx(); err != nil {
 					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-				} else {
-					logger.Info(SuccessNginxReload)
 				}
+
+				logger.Info(SuccessNginxReload)
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -75,14 +63,14 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 				if oldWorkerFound {
 					if newWorker.NodeCondition == "True" && newOk {
 						logger.Info("node is still healthy and labelled, skipping...",
-							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
+							zap.String("node", oldWorker.HostIP))
 					} else {
 						logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
-							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
+							zap.String("node", oldWorker.HostIP))
 						removeWorker(cluster, oldWorkerIndex)
 
 						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
-							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
+							zap.String("node", oldWorker.HostIP))
 						metrics.TargetNodeCounter.Desc()
 
 						// Apply changes to the template
@@ -94,17 +82,16 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 						}
 
 						// reload Nginx service
-						err = reloadNginx()
-						if err != nil {
+						if err = reloadNginx(); err != nil {
 							logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-						} else {
-							logger.Info(SuccessNginxReload)
 						}
+
+						logger.Info(SuccessNginxReload)
 					}
 				} else {
 					if newWorker.NodeCondition == "True" && newOk {
 						logger.Info("node is now healthy and labeled, adding to the cluster.Workers slice",
-							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
+							zap.String("node", oldWorker.HostIP))
 						addWorker(&cluster.Workers, newWorker)
 
 						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
@@ -120,15 +107,14 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 						}
 
 						// reload Nginx service
-						err = reloadNginx()
-						if err != nil {
+						if err = reloadNginx(); err != nil {
 							logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-						} else {
-							logger.Info(SuccessNginxReload)
 						}
+
+						logger.Info(SuccessNginxReload)
 					} else {
 						logger.Info("node is still unhealthy or unlabelled, skipping...",
-							zap.String("masterIP", cluster.MasterIP), zap.String("node", oldWorker.HostIP))
+							zap.String("node", oldWorker.HostIP))
 					}
 				}
 			}
@@ -137,18 +123,14 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 			node := obj.(*v1.Node)
 			nodeReady := isNodeReady(node)
 			worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
-			logger.Info("delete event fetched for node", zap.String("masterIP", cluster.MasterIP),
-				zap.String("node", worker.HostIP))
+			logger.Info("delete event fetched for node", zap.String("node", worker.HostIP))
 			index, found := findWorker(cluster.Workers, *worker)
 			if found {
-				logger.Info("node found in the cluster.Workers, removing...",
-					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
+				logger.Info("node found in the cluster.Workers, removing...", zap.String("node", worker.HostIP))
 				removeWorker(cluster, index)
-				logger.Info("successfully removed node from cluster.Workers slice!",
-					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
+				logger.Info("successfully removed node from cluster.Workers slice!", zap.String("node", worker.HostIP))
 
-				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
-					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
+				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts", zap.String("node", worker.HostIP))
 				metrics.TargetNodeCounter.Desc()
 
 				// Apply changes to the template
@@ -160,15 +142,13 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, ncg
 				}
 
 				// reload Nginx service
-				err = reloadNginx()
-				if err != nil {
+				if err = reloadNginx(); err != nil {
 					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-				} else {
-					logger.Info(SuccessNginxReload)
 				}
+
+				logger.Info(SuccessNginxReload)
 			} else {
-				logger.Info("node not found in the cluster.workers, skipping remove operation",
-					zap.String("masterIP", cluster.MasterIP), zap.String("node", worker.HostIP))
+				logger.Info("node not found in the cluster.workers, skipping remove operation", zap.String("node", worker.HostIP))
 			}
 		},
 	})

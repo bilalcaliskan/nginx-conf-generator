@@ -9,6 +9,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"nginx-conf-generator/internal/k8s/types"
+	"nginx-conf-generator/internal/logging"
 	"nginx-conf-generator/internal/options"
 	"sync"
 	"testing"
@@ -143,7 +144,7 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, opts, nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
 	}()
 
 	var wg sync.WaitGroup
@@ -197,7 +198,7 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, opts, nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
 	}()
 
 	var wg sync.WaitGroup

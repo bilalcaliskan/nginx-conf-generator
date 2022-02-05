@@ -24,3 +24,16 @@ func init() {
 func GetLogger() *zap.Logger {
 	return logger
 }
+
+// NewLogger creates a new *zap.Logger and returns it
+func NewLogger() *zap.Logger {
+	return zap.New(zapcore.NewTee(zapcore.NewCore(zapcore.NewJSONEncoder(zapcore.EncoderConfig{
+		MessageKey:   "message",
+		LevelKey:     "severity",
+		EncodeLevel:  zapcore.LowercaseLevelEncoder,
+		TimeKey:      "time",
+		EncodeTime:   zapcore.RFC3339TimeEncoder,
+		CallerKey:    "caller",
+		EncodeCaller: zapcore.FullCallerEncoder,
+	}), zapcore.Lock(os.Stdout), zap.InfoLevel)))
+}

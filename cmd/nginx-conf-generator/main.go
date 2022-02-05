@@ -52,9 +52,11 @@ func main() {
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
 		cluster := types.NewCluster(masterIp, make([]*types.Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+		logger := logging.NewLogger()
+		logger.With(zap.String("masterIP", cluster.MasterIP))
 
-		informers.RunNodeInformer(cluster, clientSet, ncgo, nginxConf)
-		informers.RunServiceInformer(cluster, clientSet, ncgo, nginxConf)
+		informers.RunNodeInformer(cluster, clientSet, logger, ncgo, nginxConf)
+		informers.RunServiceInformer(cluster, clientSet, logger, ncgo, nginxConf)
 	}
 
 	go func() {

@@ -13,7 +13,9 @@ import (
 )
 
 // RunServiceInformer spins up a shared informer factory and fetch Kubernetes service events
-func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset, ncgo *options.NginxConfGeneratorOptions, nginxConf *types.NginxConf) {
+func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger,
+	ncgo *options.NginxConfGeneratorOptions, nginxConf *types.NginxConf) {
+
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -27,14 +29,13 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 
 			if service.Spec.Type == "NodePort" && ok && service.Annotations[ncgo.CustomAnnotation] == "true" {
 				logger.Info("valid service added", zap.String("name", service.Name),
-					zap.String("masterIP", cluster.MasterIP), zap.String("namespace", service.Namespace),
-					zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
+					zap.String("namespace", service.Namespace), zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
 
 				nodePort := types.NewNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				_, found := findNodePort(cluster.Workers, nodePort)
 				if found {
 					logger.Info("nodePort found in the backend.NodePorts, skipping adding...",
-						zap.String("masterIP", cluster.MasterIP), zap.Int32("nodePort", nodePort.Port))
+						zap.Int32("nodePort", nodePort.Port))
 				} else {
 					addNodePort(cluster.Workers, nodePort)
 				}
@@ -54,7 +55,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 				}
 			} else {
 				logger.Info("service is not valid, it is not annotated or not a nodePort type service",
-					zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
+					zap.String("name", service.Name),
 					zap.String("namespace", service.Namespace))
 			}
 		},
@@ -98,7 +99,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 								zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
 							removeNodePort(&cluster.Workers, oldIndex)
 							logger.Info("successfully removed service from cluster.NodePorts",
-								zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
+								zap.String("name", oldService.Name),
 								zap.String("namespace", oldService.Namespace))
 						}
 					}
@@ -107,12 +108,10 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 					oldIndex, oldFound := findNodePort(cluster.Workers, oldNodePort)
 					if oldFound {
 						logger.Info("removing service from cluster.NodePorts because it is accidentially added",
-							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
-							zap.String("namespace", oldService.Namespace))
+							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
 						removeNodePort(&cluster.Workers, oldIndex)
 						logger.Info("successfully removed service from cluster.NodePorts",
-							zap.String("masterIP", cluster.MasterIP), zap.String("name", oldService.Name),
-							zap.String("namespace", oldService.Namespace))
+							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
 					}
 
 					if newOk && newService.Spec.Type == "NodePort" {
@@ -120,17 +119,15 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 						_, newFound := findNodePort(cluster.Workers, newNodePort)
 						if !newFound {
 							logger.Info("adding service to cluster.NodePorts because it is labelled and nodePort "+
-								"type service",
-								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
+								"type service", zap.String("name", newService.Name),
 								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
 							addNodePort(cluster.Workers, newNodePort)
 							logger.Info("successfully added service to cluster.NodePorts",
-								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
-								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
+								zap.String("name", newService.Name), zap.String("namespace", newService.Namespace),
+								zap.Int32("nodePort", newNodePort.Port))
 						} else {
 							logger.Warn("service is already found in cluster.NodePorts, this is buggy, inspect!",
-								zap.String("masterIP", cluster.MasterIP), zap.String("name", newService.Name),
-								zap.String("namespace", newService.Namespace))
+								zap.String("name", newService.Name), zap.String("namespace", newService.Namespace))
 						}
 
 					}
@@ -163,12 +160,10 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 				index, found := findNodePort(cluster.Workers, nodePort)
 				if found {
 					logger.Info("valid service deleted, removing from cluster.NodePorts",
-						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
-						zap.String("namespace", service.Namespace))
+						zap.String("name", service.Name), zap.String("namespace", service.Namespace))
 					removeNodePort(&cluster.Workers, index)
 					logger.Info("successfully removed deleted service from cluster.NodePorts",
-						zap.String("masterIP", cluster.MasterIP), zap.String("name", service.Name),
-						zap.String("namespace", service.Namespace))
+						zap.String("name", service.Name), zap.String("namespace", service.Namespace))
 				}
 			}
 
