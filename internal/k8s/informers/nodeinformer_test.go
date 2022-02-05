@@ -1,4 +1,4 @@
-package k8s
+package informers
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"nginx-conf-generator/internal/k8s/types"
 	"nginx-conf-generator/internal/options"
 	"sync"
 	"testing"
@@ -15,8 +16,8 @@ import (
 )
 
 var (
-	clusters  []*Cluster
-	nginxConf = &NginxConf{
+	clusters  []*types.Cluster
+	nginxConf = &types.NginxConf{
 		Clusters: clusters,
 	}
 	ncgo      = options.GetNginxConfGeneratorOptions()
@@ -130,15 +131,15 @@ func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
 
 func TestRunNodeInformerCase1(t *testing.T) {
 	/*
-	- new node added with required label and required node status
-	- this particular node deleted
+		- new node added with required label and required node status
+		- this particular node deleted
 	*/
 
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
-	ncgo.TemplateInputFile = "../../resources/default.conf.tmpl"
-	cluster := NewCluster("", make([]*Worker, 0))
+	ncgo.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	cluster := types.NewCluster("", make([]*types.Worker, 0))
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
@@ -158,7 +159,7 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	node, _ := api.getNode("node01")
-	worker := NewWorker("", node.Name, "True")
+	worker := types.NewWorker("", node.Name, "True")
 
 	wg.Add(1)
 	go func() {
@@ -169,8 +170,6 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	wg.Wait()
 
 	for {
-		time.Sleep(10 * time.Second)
-
 		_, found := findWorker(cluster.Workers, *worker)
 		if !found {
 			break
@@ -180,14 +179,15 @@ func TestRunNodeInformerCase1(t *testing.T) {
 
 func TestRunNodeInformerCase2(t *testing.T) {
 	/*
-	- new node added with required label and required node status
-	- this particular node's node status updated as NotReady
+		- new node added with required label and required node status
+		- this particular node's node status updated as NotReady
 	*/
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
-	ncgo.TemplateInputFile = "../../resources/default.conf.tmpl"
-	cluster := NewCluster("", make([]*Worker, 0))
+	ncgo = options.GetNginxConfGeneratorOptions()
+	ncgo.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	cluster := types.NewCluster("", make([]*types.Worker, 0))
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
@@ -217,9 +217,6 @@ func TestRunNodeInformerCase2(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	node, _ := api.getNode("node01")
-	worker := NewWorker("", node.Name, "True")
-
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -228,12 +225,13 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	}()
 	wg.Wait()
 
-	for {
-		time.Sleep(10 * time.Second)
+	time.Sleep(10 * time.Second)
 
+	// worker := NewWorker("", api.getNode("node01").Name, "True")
+	/*for {
 		_, found := findWorker(cluster.Workers, *worker)
 		if !found {
 			break
 		}
-	}
+	}*/
 }

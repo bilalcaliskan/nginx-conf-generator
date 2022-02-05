@@ -1,4 +1,4 @@
-package k8s
+package informers
 
 const (
 	ErrRenderTemplate  = "an error occurred while rendering template"
