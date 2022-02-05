@@ -17,9 +17,7 @@ import (
 
 var (
 	clusters  []*types.Cluster
-	nginxConf = &types.NginxConf{
-		Clusters: clusters,
-	}
+	nginxConf = types.NewNginxConf(clusters)
 	ncgo      = options.GetNginxConfGeneratorOptions()
 	parentCtx = context.Background()
 )

@@ -30,15 +30,8 @@ func findWorker(workers []*types.Worker, worker types.Worker) (int, bool) {
 	}
 	return -1, false
 }
+
 //////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
 
 //////////////////////////////////// NodePort Related Functions ////////////////////////////////////
 func addWorkersToNodePort(workers []*types.Worker, nodePort *types.NodePort) {
@@ -96,10 +89,8 @@ func updateNodePort(nodePorts *[]*types.NodePort, workers []*types.Worker, oldNo
 	addWorkersToNodePort(workers, newNodePort)
 	addNodePort(nodePorts, newNodePort)
 }
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
 
 //////////////////////////////////// Common Utility Functions ////////////////////////////////////
 
@@ -163,4 +154,5 @@ func renderTemplate(templateInputFile, templateOutputFile string, data interface
 
 	return nil
 }
+
 /////////////////////////////////////////////////////////////////////////////////////////////

@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	clusters  []*types.Cluster
-	nginxConf = types.NewNginxConf(clusters)
+	clusters          []*types.Cluster
+	nginxConf         = types.NewNginxConf(clusters)
 	ncgo              *options.NginxConfGeneratorOptions
 	logger            *zap.Logger
 	kubeConfigPathArr []string
