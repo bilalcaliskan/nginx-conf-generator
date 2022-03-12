@@ -157,6 +157,8 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	}()
 	wg.Wait()
 
+	time.Sleep(2 * time.Second)
+
 	node, err := api.getNode("node01")
 	assert.Nil(t, err)
 	assert.NotNil(t, node)
@@ -168,6 +170,8 @@ func TestRunNodeInformerCase1(t *testing.T) {
 		assert.Nil(t, err)
 	}()
 	wg.Wait()
+
+	time.Sleep(2 * time.Second)
 
 	worker := types.NewWorker("", node.Name, "True")
 	for {
@@ -185,6 +189,10 @@ func TestRunNodeInformerCase2(t *testing.T) {
 		- new node added with required label and required node status
 		- this particular node's node status updated as NotReady
 	*/
+	createChan := make(chan bool, 1)
+	updateChan := make(chan bool, 1)
+	deleteChan := make(chan bool, 1)
+
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
@@ -208,19 +216,51 @@ func TestRunNodeInformerCase2(t *testing.T) {
 		pod, err := api.createNode("node01")
 		assert.Nil(t, err)
 		assert.NotNil(t, pod)
+		createChan <- true
 	}()
 	wg.Wait()
 
-	time.Sleep(2 * time.Second)
+	/*	wg.Add(1)
+		go func() {
+			defer wg.Done()
+			node, err := api.getNode("node01")
+			assert.Nil(t, err)
+			assert.NotNil(t, node)
+			for {
+				if node.Status.Conditions[0].Status == "True" {
+					break
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}()
+		wg.Wait()*/
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		<-createChan
 		updatedNode, err := api.updateNode("node01")
 		assert.NotNil(t, updatedNode)
 		assert.Nil(t, err)
+		updateChan <- true
 	}()
 	wg.Wait()
+
+	//time.Sleep(2 * time.Second)
+	/*	wg.Add(1)
+		go func() {
+			defer wg.Done()
+			node, err := api.getNode("node01")
+			assert.Nil(t, err)
+			assert.NotNil(t, node)
+			for {
+				if node.Status.Conditions[0].Status == "False" {
+					break
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}()
+		wg.Wait()*/
 
 	node, err := api.getNode("node01")
 	assert.Nil(t, err)
@@ -229,10 +269,14 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		<-updateChan
 		err := api.deleteNode("node01")
 		assert.Nil(t, err)
+		deleteChan <- true
 	}()
 	wg.Wait()
+
+	//time.Sleep(2 * time.Second)
 
 	worker := types.NewWorker("", node.Name, "True")
 	for {
