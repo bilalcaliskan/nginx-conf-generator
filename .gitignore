@@ -16,4 +16,4 @@ vendor/
 *.out
 coverage.txt
 
-default
+./default
