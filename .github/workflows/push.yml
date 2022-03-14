@@ -128,7 +128,7 @@ jobs:
           fi
         shell: bash
       - name: Coverage Test
-        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic -exec sudo ./... -p 1
+        run: go test ./... -race -p 1 -coverprofile=coverage.txt -covermode=atomic -exec sudo ./...
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:

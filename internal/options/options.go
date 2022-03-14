@@ -1,10 +1,11 @@
 package options
 
 import (
-	"github.com/spf13/pflag"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/spf13/pflag"
 )
 
 var nginxConfGeneratorOptions = &NginxConfGeneratorOptions{}
@@ -52,7 +53,7 @@ func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 		"selectable services")
 	flag.StringVar(&ncgo.TemplateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input "+
 		"path of the template file")
-	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/sites-enabled/default", "output "+
+	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/conf.d/default", "output "+
 		"path of the template file")
 	flag.IntVar(&ncgo.MetricsPort, "metricsPort", 5000, "port of the metrics server")
 	flag.IntVar(&ncgo.WriteTimeoutSeconds, "writeTimeoutSeconds", 10, "write timeout of the metrics server")
