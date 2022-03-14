@@ -1,19 +1,20 @@
 package informers
 
 import (
+	"nginx-conf-generator/internal/k8s/types"
+	"nginx-conf-generator/internal/options"
+	"time"
+
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/options"
-	"time"
 )
 
 // RunServiceInformer spins up a shared informer factory and fetch Kubernetes service events
-func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset, logger *zap.Logger,
+func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger,
 	ncgo *options.NginxConfGeneratorOptions, nginxConf *types.NginxConf) {
 
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
@@ -76,6 +77,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet *kubernetes.Clientset,
 				}
 
 				// _, newOk := (newService.Annotations[ncgo.CustomAnnotation] && newService.Annotations[ncgo.CustomAnnotation] == "true")
+				// TODO: use api types here and everywhere else
 				if oldOk && oldService.Spec.Type == "NodePort" {
 					if newOk && newService.Spec.Type == "NodePort" {
 						oldNodePort := types.NewNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
