@@ -2,18 +2,19 @@ package informers
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	"nginx-conf-generator/internal/k8s/types"
 	"nginx-conf-generator/internal/logging"
 	"nginx-conf-generator/internal/options"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 var (
@@ -150,14 +151,14 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		time.Sleep(2 * time.Second)
 		defer wg.Done()
 		pod, err := api.createNode("node01")
 		assert.Nil(t, err)
 		assert.NotNil(t, pod)
+		t.Logf("node created")
 	}()
 	wg.Wait()
-
-	time.Sleep(2 * time.Second)
 
 	node, err := api.getNode("node01")
 	assert.Nil(t, err)
@@ -165,23 +166,30 @@ func TestRunNodeInformerCase1(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
+		time.Sleep(2 * time.Second)
 		defer wg.Done()
 		err := api.deleteNode("node01")
 		assert.Nil(t, err)
+		t.Logf("node deleted")
 	}()
 	wg.Wait()
 
-	time.Sleep(2 * time.Second)
-
-	worker := types.NewWorker("", node.Name, "True")
-	for {
-		cluster.Mu.Lock()
-		_, found := findWorker(cluster.Workers, *worker)
-		cluster.Mu.Unlock()
-		if !found {
-			break
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		worker := types.NewWorker("", node.Name, "True")
+		for {
+			cluster.Mu.Lock()
+			_, found := findWorker(cluster.Workers, *worker)
+			cluster.Mu.Unlock()
+			if !found {
+				t.Logf("node delete test succeeded")
+				break
+			}
 		}
-	}
+	}()
+	wg.Wait()
 }
 
 func TestRunNodeInformerCase2(t *testing.T) {
@@ -189,10 +197,6 @@ func TestRunNodeInformerCase2(t *testing.T) {
 		- new node added with required label and required node status
 		- this particular node's node status updated as NotReady
 	*/
-	createChan := make(chan bool, 1)
-	updateChan := make(chan bool, 1)
-	deleteChan := make(chan bool, 1)
-
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
@@ -212,79 +216,35 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		time.Sleep(2 * time.Second)
 		defer wg.Done()
 		pod, err := api.createNode("node01")
 		assert.Nil(t, err)
 		assert.NotNil(t, pod)
-		createChan <- true
+		t.Logf("node created")
 	}()
 	wg.Wait()
 
-	/*	wg.Add(1)
-		go func() {
-			defer wg.Done()
-			node, err := api.getNode("node01")
-			assert.Nil(t, err)
-			assert.NotNil(t, node)
-			for {
-				if node.Status.Conditions[0].Status == "True" {
-					break
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}()
-		wg.Wait()*/
-
 	wg.Add(1)
 	go func() {
+		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		<-createChan
 		updatedNode, err := api.updateNode("node01")
 		assert.NotNil(t, updatedNode)
 		assert.Nil(t, err)
-		updateChan <- true
+		t.Logf("node updated")
 	}()
 	wg.Wait()
-
-	//time.Sleep(2 * time.Second)
-	/*	wg.Add(1)
-		go func() {
-			defer wg.Done()
-			node, err := api.getNode("node01")
-			assert.Nil(t, err)
-			assert.NotNil(t, node)
-			for {
-				if node.Status.Conditions[0].Status == "False" {
-					break
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}()
-		wg.Wait()*/
-
-	node, err := api.getNode("node01")
-	assert.Nil(t, err)
-	assert.NotNil(t, node)
 
 	wg.Add(1)
 	go func() {
+		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		<-updateChan
-		err := api.deleteNode("node01")
+		node, err := api.getNode("node01")
 		assert.Nil(t, err)
-		deleteChan <- true
+		assert.NotNil(t, node)
+		t.Logf("node fetched")
+		assert.Equal(t, v1.ConditionStatus("False"), node.Status.Conditions[0].Status)
 	}()
 	wg.Wait()
-
-	//time.Sleep(2 * time.Second)
-
-	worker := types.NewWorker("", node.Name, "True")
-	for {
-		cluster.Mu.Lock()
-		_, found := findWorker(cluster.Workers, *worker)
-		cluster.Mu.Unlock()
-		if !found {
-			break
-		}
-	}
 }
