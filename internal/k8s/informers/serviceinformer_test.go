@@ -66,10 +66,11 @@ func (fAPI *FakeAPI) createService(name string, containsAnnotation bool) (*v1.Se
 	return node, nil
 }
 
-func (fAPI *FakeAPI) updateService(name string, annotationEnabled bool) (*v1.Service, error) {
+func (fAPI *FakeAPI) updateService(name string, annotationEnabled bool, version string) (*v1.Service, error) {
 	var err error
 	service, _ := fAPI.getService(name)
 	service.Annotations[opts.CustomAnnotation] = strconv.FormatBool(annotationEnabled)
+	service.ResourceVersion = version
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
@@ -119,7 +120,7 @@ func TestRunServiceInformerCase1(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		service, err := api.updateService("nginx-a", false)
+		service, err := api.updateService("nginx-a", false, "123456")
 		assert.NotNil(t, service)
 		assert.Nil(t, err)
 		t.Logf("service updated with required annotations")
@@ -177,7 +178,7 @@ func TestRunServiceInformerCase2(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		service, err := api.updateService("nginx-a", true)
+		service, err := api.updateService("nginx-a", true, "123456")
 		assert.NotNil(t, service)
 		assert.Nil(t, err)
 		t.Logf("service updated with required annotations")

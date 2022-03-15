@@ -42,10 +42,10 @@ func (fAPI *FakeAPI) deleteNode(name string) error {
 	return fAPI.ClientSet.CoreV1().Nodes().Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func (fAPI *FakeAPI) updateNode(name string) (*v1.Node, error) {
+func (fAPI *FakeAPI) updateNode(name string, status v1.ConditionStatus, version string) (*v1.Node, error) {
 	node, _ := fAPI.getNode(name)
-	node.Status.Conditions[0].Status = "False"
-	node.ResourceVersion = "123456"
+	node.Status.Conditions[0].Status = status
+	node.ResourceVersion = version
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
@@ -178,7 +178,7 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		worker := types.NewWorker("", node.Name, "True")
+		worker := types.NewWorker("", node.Name, v1.ConditionTrue)
 		for {
 			cluster.Mu.Lock()
 			_, found := findWorker(cluster.Workers, *worker)
@@ -229,7 +229,7 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		updatedNode, err := api.updateNode("node01")
+		updatedNode, err := api.updateNode("node01", v1.ConditionFalse, "123456")
 		assert.NotNil(t, updatedNode)
 		assert.Nil(t, err)
 		t.Logf("node updated")
@@ -252,7 +252,7 @@ func TestRunNodeInformerCase2(t *testing.T) {
 func TestRunNodeInformerCase3(t *testing.T) {
 	/*
 		- new node added with required label and required node status
-		- this particular node's node status updated as NotReady
+		- this particular node's node status updated as Ready
 	*/
 	api := getFakeAPI()
 	assert.NotNil(t, api)
@@ -286,7 +286,7 @@ func TestRunNodeInformerCase3(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		updatedNode, err := api.updateNode("node01")
+		updatedNode, err := api.updateNode("node01", v1.ConditionTrue, "123456")
 		assert.NotNil(t, updatedNode)
 		assert.Nil(t, err)
 		t.Logf("node updated")

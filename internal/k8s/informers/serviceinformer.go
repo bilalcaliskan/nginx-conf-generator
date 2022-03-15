@@ -3,6 +3,7 @@ package informers
 import (
 	"nginx-conf-generator/internal/k8s/types"
 	"nginx-conf-generator/internal/options"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -44,7 +45,9 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
+				ncgo.Mu.Lock()
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+				ncgo.Mu.Unlock()
 				if err != nil {
 					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
@@ -66,16 +69,10 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			oldService := oldObj.(*v1.Service)
 			newService := newObj.(*v1.Service)
 			// There is an actual update on the service
+			oldOk, _ := strconv.ParseBool(oldService.Annotations[ncgo.CustomAnnotation])
+			newOk, _ := strconv.ParseBool(newService.Annotations[ncgo.CustomAnnotation])
+
 			if oldService.ResourceVersion != newService.ResourceVersion {
-				var oldOk, newOk bool
-				if oldService.Annotations[ncgo.CustomAnnotation] == "true" {
-					oldOk = true
-				}
-
-				if newService.Annotations[ncgo.CustomAnnotation] == "true" {
-					newOk = true
-				}
-
 				if oldOk && oldService.Spec.Type == v1.ServiceTypeNodePort {
 					if newOk && newService.Spec.Type == v1.ServiceTypeNodePort {
 						oldNodePort := types.NewNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
@@ -137,7 +134,9 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 				}
 
 				// Apply changes to the template
+				ncgo.Mu.Lock()
 				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+				ncgo.Mu.Unlock()
 				if err != nil {
 					logger.Fatal(ErrRenderTemplate, zap.Error(err))
 				}
@@ -171,7 +170,9 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 
 			// Apply changes to the template
+			ncgo.Mu.Lock()
 			err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+			ncgo.Mu.Unlock()
 			if err != nil {
 				logger.Fatal(ErrRenderTemplate, zap.Error(err))
 			}
