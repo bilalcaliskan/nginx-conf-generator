@@ -63,7 +63,7 @@ func (fAPI *FakeAPI) getNode(name string) (*v1.Node, error) {
 	return fAPI.ClientSet.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
 }
 
-func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
+func (fAPI *FakeAPI) createNode(name string, isReady v1.ConditionStatus, isLabelled bool) (*v1.Node, error) {
 	node := &v1.Node{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Node",
@@ -77,7 +77,6 @@ func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
 				"kubernetes.io/arch":      "amd64",
 				"kubernetes.io/hostname":  name,
 				"kubernetes.io/os":        "linux",
-				"worker":                  "",
 			},
 		},
 		Spec: v1.NodeSpec{
@@ -106,7 +105,7 @@ func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
 			Conditions: []v1.NodeCondition{
 				{
 					Type:   "Ready",
-					Status: "True",
+					Status: isReady,
 					Reason: "KubeletReady",
 				},
 			},
@@ -115,6 +114,10 @@ func (fAPI *FakeAPI) createNode(name string) (*v1.Node, error) {
 				{Type: v1.NodeInternalIP, Address: "192.168.49.3"},
 			},
 		},
+	}
+
+	if isLabelled {
+		node.ObjectMeta.Labels[opts.WorkerNodeLabel] = ""
 	}
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
@@ -153,7 +156,7 @@ func TestRunNodeInformerCase1(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		pod, err := api.createNode("node01")
+		pod, err := api.createNode("node01", v1.ConditionTrue, true)
 		assert.Nil(t, err)
 		assert.NotNil(t, pod)
 		t.Logf("node created")
@@ -218,7 +221,8 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		pod, err := api.createNode("node01")
+		// TODO: panics when isLabelled is passed as false
+		pod, err := api.createNode("node01", v1.ConditionTrue, true)
 		assert.Nil(t, err)
 		assert.NotNil(t, pod)
 		t.Logf("node created")
@@ -275,7 +279,7 @@ func TestRunNodeInformerCase3(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		pod, err := api.createNode("node01")
+		pod, err := api.createNode("node01", v1.ConditionTrue, true)
 		assert.Nil(t, err)
 		assert.NotNil(t, pod)
 		t.Logf("node created")
