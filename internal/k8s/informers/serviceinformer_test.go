@@ -66,11 +66,14 @@ func (fAPI *FakeAPI) createService(name string, containsAnnotation bool) (*v1.Se
 	return node, nil
 }
 
-func (fAPI *FakeAPI) updateService(name string, annotationEnabled bool, version string) (*v1.Service, error) {
+func (fAPI *FakeAPI) updateService(name string, annotationEnabled, updateNodeport bool, version string) (*v1.Service, error) {
 	var err error
 	service, _ := fAPI.getService(name)
 	service.Annotations[opts.CustomAnnotation] = strconv.FormatBool(annotationEnabled)
 	service.ResourceVersion = version
+	if updateNodeport {
+		service.Spec.Ports[0].NodePort = service.Spec.Ports[0].NodePort + 1
+	}
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
@@ -82,11 +85,13 @@ func (fAPI *FakeAPI) updateService(name string, annotationEnabled bool, version 
 	return service, nil
 }
 
+func (fAPI *FakeAPI) deleteService(name string) error {
+	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
+	defer cancel()
+	return fAPI.ClientSet.CoreV1().Services(fAPI.Namespace).Delete(ctx, name, metav1.DeleteOptions{})
+}
+
 func TestRunServiceInformerCase1(t *testing.T) {
-	/*
-		- new NodePort type service added with required annotation
-		- that service is updated without required annotation
-	*/
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
@@ -120,7 +125,7 @@ func TestRunServiceInformerCase1(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		service, err := api.updateService("nginx-a", false, "123456")
+		service, err := api.updateService("nginx-a", false, false, "123456")
 		assert.NotNil(t, service)
 		assert.Nil(t, err)
 		t.Logf("service updated with required annotations")
@@ -141,10 +146,6 @@ func TestRunServiceInformerCase1(t *testing.T) {
 }
 
 func TestRunServiceInformerCase2(t *testing.T) {
-	/*
-		- new NodePort type service created with required annotation
-		- that service is updated without required annotation
-	*/
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
@@ -178,7 +179,69 @@ func TestRunServiceInformerCase2(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		service, err := api.updateService("nginx-a", true, "123456")
+		service, err := api.updateService("nginx-a", true, false, "123456")
+		assert.NotNil(t, service)
+		assert.Nil(t, err)
+		t.Logf("service updated with required annotations")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		err := api.deleteService("nginx-a")
+		assert.Nil(t, err)
+		t.Logf("service deleted")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.getService("nginx-a")
+		assert.NotNil(t, err)
+		assert.Nil(t, service)
+	}()
+	wg.Wait()
+}
+
+func TestRunServiceInformerCase3(t *testing.T) {
+	api := getFakeAPI()
+	assert.NotNil(t, api)
+
+	opts.Mu.Lock()
+	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Unlock()
+
+	var clusters []*types.Cluster
+	nginxConf := types.NewNginxConf(clusters)
+	cluster := types.NewCluster("", make([]*types.Worker, 0))
+	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+	t.Logf(opts.CustomAnnotation)
+
+	go func() {
+		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.createService("nginx-a", true)
+		assert.Nil(t, err)
+		assert.NotNil(t, service)
+		t.Logf("service created without required annotations")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.updateService("nginx-a", true, false, "123456")
 		assert.NotNil(t, service)
 		assert.Nil(t, err)
 		t.Logf("service updated with required annotations")
@@ -194,6 +257,80 @@ func TestRunServiceInformerCase2(t *testing.T) {
 		assert.NotNil(t, service)
 		t.Logf("service fetched")
 		assert.Equal(t, "true", service.Annotations[opts.CustomAnnotation])
+	}()
+	wg.Wait()
+}
+
+func TestRunServiceInformerCase4(t *testing.T) {
+	api := getFakeAPI()
+	assert.NotNil(t, api)
+
+	opts.Mu.Lock()
+	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Unlock()
+
+	var clusters []*types.Cluster
+	nginxConf := types.NewNginxConf(clusters)
+	cluster := types.NewCluster("", make([]*types.Worker, 0))
+	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+	t.Logf(opts.CustomAnnotation)
+
+	go func() {
+		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.createService("nginx-a", true)
+		assert.Nil(t, err)
+		assert.NotNil(t, service)
+		t.Logf("service created without required annotations")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.updateService("nginx-a", true, true, "123456")
+		assert.NotNil(t, service)
+		assert.Nil(t, err)
+		t.Logf("service updated with required annotations")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.getService("nginx-a")
+		assert.Nil(t, err)
+		assert.NotNil(t, service)
+		t.Logf("service fetched")
+		assert.Equal(t, "true", service.Annotations[opts.CustomAnnotation])
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		err := api.deleteService("nginx-a")
+		assert.Nil(t, err)
+		t.Logf("service deleted")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.getService("nginx-a")
+		assert.NotNil(t, err)
+		assert.Nil(t, service)
 	}()
 	wg.Wait()
 }
