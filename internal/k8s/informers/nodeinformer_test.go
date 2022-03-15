@@ -248,3 +248,60 @@ func TestRunNodeInformerCase2(t *testing.T) {
 	}()
 	wg.Wait()
 }
+
+func TestRunNodeInformerCase3(t *testing.T) {
+	/*
+		- new node added with required label and required node status
+		- this particular node's node status updated as NotReady
+	*/
+	api := getFakeAPI()
+	assert.NotNil(t, api)
+
+	opts.Mu.Lock()
+	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Unlock()
+
+	var clusters []*types.Cluster
+	nginxConf := types.NewNginxConf(clusters)
+	cluster := types.NewCluster("", make([]*types.Worker, 0))
+	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+
+	go func() {
+		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		pod, err := api.createNode("node01")
+		assert.Nil(t, err)
+		assert.NotNil(t, pod)
+		t.Logf("node created")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		updatedNode, err := api.updateNode("node01")
+		assert.NotNil(t, updatedNode)
+		assert.Nil(t, err)
+		t.Logf("node updated")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		node, err := api.getNode("node01")
+		assert.Nil(t, err)
+		assert.NotNil(t, node)
+		t.Logf("node fetched")
+		assert.Equal(t, v1.ConditionStatus("False"), node.Status.Conditions[0].Status)
+	}()
+	wg.Wait()
+}

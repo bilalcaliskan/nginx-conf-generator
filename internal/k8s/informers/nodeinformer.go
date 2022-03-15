@@ -1,16 +1,17 @@
 package informers
 
 import (
+	"nginx-conf-generator/internal/k8s/types"
+	"nginx-conf-generator/internal/metrics"
+	"nginx-conf-generator/internal/options"
+	"time"
+
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/metrics"
-	"nginx-conf-generator/internal/options"
-	"time"
 )
 
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
@@ -62,65 +63,35 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				oldWorker := types.NewWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
 				newWorker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
-				oldWorkerIndex, oldWorkerFound := findWorker(cluster.Workers, *oldWorker)
-				if oldWorkerFound {
-					if newWorker.NodeCondition == "True" && newOk {
-						logger.Info("node is still healthy and labelled, skipping...",
-							zap.String("node", oldWorker.HostIP))
-					} else {
-						logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
-							zap.String("node", oldWorker.HostIP))
-						removeWorker(cluster, oldWorkerIndex)
-
-						removeWorkerFromNodePorts(cluster, oldWorker)
-
-						logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
-							zap.String("node", oldWorker.HostIP))
-						metrics.TargetNodeCounter.Desc()
-
-						// Apply changes to the template
-						ncgo.Mu.Lock()
-						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
-						ncgo.Mu.Unlock()
-						if err != nil {
-							logger.Fatal(ErrRenderTemplate, zap.Error(err))
-						}
-
-						// reload Nginx service
-						if err = reloadNginx(); err != nil {
-							logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-						}
-
-						logger.Info(SuccessNginxReload)
-					}
+				oldWorkerIndex, _ := findWorker(cluster.Workers, *oldWorker)
+				if newWorker.NodeCondition == "True" && newOk {
+					logger.Info("node is still healthy and labelled, skipping...",
+						zap.String("node", oldWorker.HostIP))
 				} else {
-					if newWorker.NodeCondition == "True" && newOk {
-						logger.Info("node is now healthy and labeled, adding to the cluster.Workers slice",
-							zap.String("node", oldWorker.HostIP))
-						addWorker(&cluster.Workers, newWorker)
+					logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
+						zap.String("node", oldWorker.HostIP))
+					removeWorker(cluster, oldWorkerIndex)
 
-						// add NewWorker to each nodePort.Workers in the cluster.NodePorts slice
-						addWorkerToNodePorts(cluster.NodePorts, newWorker)
-						metrics.TargetNodeCounter.Inc()
+					removeWorkerFromNodePorts(cluster, oldWorker)
 
-						// Apply changes to the template
-						ncgo.Mu.Lock()
-						err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
-						ncgo.Mu.Unlock()
-						if err != nil {
-							logger.Fatal(ErrRenderTemplate, zap.Error(err))
-						}
+					logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
+						zap.String("node", oldWorker.HostIP))
+					metrics.TargetNodeCounter.Desc()
 
-						// reload Nginx service
-						if err = reloadNginx(); err != nil {
-							logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-						}
-
-						logger.Info(SuccessNginxReload)
-					} else {
-						logger.Info("node is still unhealthy or unlabelled, skipping...",
-							zap.String("node", oldWorker.HostIP))
+					// Apply changes to the template
+					ncgo.Mu.Lock()
+					err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
+					ncgo.Mu.Unlock()
+					if err != nil {
+						logger.Fatal(ErrRenderTemplate, zap.Error(err))
 					}
+
+					// reload Nginx service
+					if err = reloadNginx(); err != nil {
+						logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
+					}
+
+					logger.Info(SuccessNginxReload)
 				}
 			}
 		},
