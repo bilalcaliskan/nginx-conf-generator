@@ -244,7 +244,7 @@ func TestRunNodeInformerCase2(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, node)
 		t.Logf("node fetched")
-		assert.Equal(t, v1.ConditionStatus("False"), node.Status.Conditions[0].Status)
+		assert.Equal(t, v1.ConditionFalse, node.Status.Conditions[0].Status)
 	}()
 	wg.Wait()
 }
@@ -286,7 +286,7 @@ func TestRunNodeInformerCase3(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
-		updatedNode, err := api.updateNode("node01", v1.ConditionTrue, "123456")
+		updatedNode, err := api.updateNode("node01", v1.ConditionFalse, "123456")
 		assert.NotNil(t, updatedNode)
 		assert.Nil(t, err)
 		t.Logf("node updated")
@@ -301,7 +301,7 @@ func TestRunNodeInformerCase3(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, node)
 		t.Logf("node fetched")
-		assert.Equal(t, v1.ConditionStatus("False"), node.Status.Conditions[0].Status)
+		assert.Equal(t, v1.ConditionFalse, node.Status.Conditions[0].Status)
 	}()
 	wg.Wait()
 }
