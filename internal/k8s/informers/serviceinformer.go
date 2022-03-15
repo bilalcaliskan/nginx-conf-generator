@@ -35,14 +35,10 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 
 				nodePort := types.NewNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				_, found := findNodePort(cluster.NodePorts, *nodePort)
-				if found {
-					logger.Info("nodePort found in the backend.NodePorts, skipping adding...",
-						zap.Int32("nodePort", nodePort.Port))
-				} else {
+				if !found {
+					logger.Info("adding nodePort to backend.NodePorts", zap.Int32("nodePort", nodePort.Port))
 					addNodePort(&cluster.NodePorts, nodePort)
 				}
-
-				addWorkersToNodePort(cluster.Workers, nodePort)
 
 				// Apply changes to the template
 				ncgo.Mu.Lock()
@@ -102,34 +98,18 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 								zap.String("namespace", oldService.Namespace))
 						}
 					}
-				} else {
-					oldNodePort := types.NewNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
-					oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
-					if oldFound {
-						logger.Info("removing service from cluster.NodePorts because it is accidentially added",
-							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
-						removeNodePort(&cluster.NodePorts, oldIndex)
-						logger.Info("successfully removed service from cluster.NodePorts",
-							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
-					}
-
-					if newOk && newService.Spec.Type == v1.ServiceTypeNodePort {
-						newNodePort := types.NewNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
-						_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
-						if !newFound {
-							logger.Info("adding service to cluster.NodePorts because it is labelled and nodePort "+
-								"type service", zap.String("name", newService.Name),
-								zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
-							addNodePort(&cluster.NodePorts, newNodePort)
-							addWorkersToNodePort(cluster.Workers, newNodePort)
-							logger.Info("successfully added service to cluster.NodePorts",
-								zap.String("name", newService.Name), zap.String("namespace", newService.Namespace),
-								zap.Int32("nodePort", newNodePort.Port))
-						} else {
-							logger.Warn("service is already found in cluster.NodePorts, this is buggy, inspect!",
-								zap.String("name", newService.Name), zap.String("namespace", newService.Namespace))
-						}
-
+				} else if newOk && newService.Spec.Type == v1.ServiceTypeNodePort {
+					newNodePort := types.NewNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
+					_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
+					if !newFound {
+						logger.Info("adding service to cluster.NodePorts because it is labelled and nodePort "+
+							"type service", zap.String("name", newService.Name),
+							zap.String("namespace", newService.Namespace), zap.Int32("nodePort", newNodePort.Port))
+						addNodePort(&cluster.NodePorts, newNodePort)
+						addWorkersToNodePort(cluster.Workers, newNodePort)
+						logger.Info("successfully added service to cluster.NodePorts",
+							zap.String("name", newService.Name), zap.String("namespace", newService.Namespace),
+							zap.Int32("nodePort", newNodePort.Port))
 					}
 				}
 
