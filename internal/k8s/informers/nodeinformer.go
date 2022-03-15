@@ -26,7 +26,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 			_, ok := node.Labels[ncgo.WorkerNodeLabel]
 			nodeReady := isNodeReady(node)
 
-			if ok && nodeReady == "True" {
+			if ok && nodeReady == v1.ConditionTrue {
 				logger.Info("adding node to the cluster.Workers", zap.String("node", node.Status.Addresses[0].Address))
 				worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 
@@ -64,7 +64,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				newWorker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
 				oldWorkerIndex, _ := findWorker(cluster.Workers, *oldWorker)
-				if newWorker.NodeCondition == "True" && newOk {
+				if newWorker.NodeCondition == v1.ConditionTrue && newOk {
 					logger.Info("node is still healthy and labelled, skipping...",
 						zap.String("node", oldWorker.HostIP))
 				} else {

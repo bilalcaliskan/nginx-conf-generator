@@ -28,7 +28,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 				ok = true
 			}
 
-			if service.Spec.Type == "NodePort" && ok && service.Annotations[ncgo.CustomAnnotation] == "true" {
+			if service.Spec.Type == v1.ServiceTypeNodePort && ok && service.Annotations[ncgo.CustomAnnotation] == "true" {
 				logger.Info("valid service added", zap.String("name", service.Name),
 					zap.String("namespace", service.Namespace), zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
 
@@ -76,10 +76,8 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 					newOk = true
 				}
 
-				// _, newOk := (newService.Annotations[ncgo.CustomAnnotation] && newService.Annotations[ncgo.CustomAnnotation] == "true")
-				// TODO: use api types here and everywhere else
-				if oldOk && oldService.Spec.Type == "NodePort" {
-					if newOk && newService.Spec.Type == "NodePort" {
+				if oldOk && oldService.Spec.Type == v1.ServiceTypeNodePort {
+					if newOk && newService.Spec.Type == v1.ServiceTypeNodePort {
 						oldNodePort := types.NewNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
 						newNodePort := types.NewNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						if !oldNodePort.Equals(newNodePort) {
@@ -118,7 +116,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 							zap.String("name", oldService.Name), zap.String("namespace", oldService.Namespace))
 					}
 
-					if newOk && newService.Spec.Type == "NodePort" {
+					if newOk && newService.Spec.Type == v1.ServiceTypeNodePort {
 						newNodePort := types.NewNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
 						_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
 						if !newFound {
@@ -160,7 +158,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 				ok = true
 			}
 
-			if service.Spec.Type == "NodePort" && ok {
+			if service.Spec.Type == v1.ServiceTypeNodePort && ok {
 				nodePort := types.NewNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
 				index, found := findNodePort(cluster.NodePorts, *nodePort)
 				if found {

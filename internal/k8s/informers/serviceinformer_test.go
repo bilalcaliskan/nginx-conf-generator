@@ -83,8 +83,8 @@ func (fAPI *FakeAPI) updateService(name string, annotationEnabled bool) (*v1.Ser
 
 func TestRunServiceInformerCase1(t *testing.T) {
 	/*
-		- new NodePort type service added without required annotation
-		- that service is updated with required annotation
+		- new NodePort type service added with required annotation
+		- that service is updated without required annotation
 	*/
 	api := getFakeAPI()
 	assert.NotNil(t, api)
@@ -135,6 +135,64 @@ func TestRunServiceInformerCase1(t *testing.T) {
 		assert.NotNil(t, service)
 		t.Logf("service fetched")
 		assert.Equal(t, "false", service.Annotations[opts.CustomAnnotation])
+	}()
+	wg.Wait()
+}
+
+func TestRunServiceInformerCase2(t *testing.T) {
+	/*
+		- new NodePort type service created with required annotation
+		- that service is updated without required annotation
+	*/
+	api := getFakeAPI()
+	assert.NotNil(t, api)
+
+	opts.Mu.Lock()
+	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.Mu.Unlock()
+
+	var clusters []*types.Cluster
+	nginxConf := types.NewNginxConf(clusters)
+	cluster := types.NewCluster("", make([]*types.Worker, 0))
+	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+	t.Logf(opts.CustomAnnotation)
+
+	go func() {
+		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.createService("nginx-a", false)
+		assert.Nil(t, err)
+		assert.NotNil(t, service)
+		t.Logf("service created without required annotations")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.updateService("nginx-a", true)
+		assert.NotNil(t, service)
+		assert.Nil(t, err)
+		t.Logf("service updated with required annotations")
+	}()
+	wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		time.Sleep(2 * time.Second)
+		defer wg.Done()
+		service, err := api.getService("nginx-a")
+		assert.Nil(t, err)
+		assert.NotNil(t, service)
+		t.Logf("service fetched")
+		assert.Equal(t, "true", service.Annotations[opts.CustomAnnotation])
 	}()
 	wg.Wait()
 }

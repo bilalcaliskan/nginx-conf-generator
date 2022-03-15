@@ -2,13 +2,14 @@ package informers
 
 import (
 	"html/template"
+	"nginx-conf-generator/internal/k8s/types"
+	"os"
+	"os/exec"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"nginx-conf-generator/internal/k8s/types"
-	"os"
-	"os/exec"
 )
 
 func addWorkerToNodePorts(nodePorts []*types.NodePort, worker *types.Worker) {
@@ -117,7 +118,7 @@ func isNodeReady(node *v1.Node) v1.ConditionStatus {
 			return v.Status
 		}
 	}
-	return "False"
+	return v1.ConditionFalse
 }
 
 func reloadNginx() error {
