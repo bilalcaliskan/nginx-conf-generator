@@ -42,10 +42,16 @@ func (fAPI *FakeAPI) deleteNode(name string) error {
 	return fAPI.ClientSet.CoreV1().Nodes().Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func (fAPI *FakeAPI) updateNode(name string, status v1.ConditionStatus, version string) (*v1.Node, error) {
+func (fAPI *FakeAPI) updateNode(name string, status v1.ConditionStatus, isLabelled bool, version string) (*v1.Node, error) {
 	node, _ := fAPI.getNode(name)
 	node.Status.Conditions[0].Status = status
 	node.ResourceVersion = version
+
+	if !isLabelled {
+		delete(node.Labels, opts.WorkerNodeLabel)
+	} else {
+		node.Labels[opts.WorkerNodeLabel] = ""
+	}
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
@@ -130,7 +136,7 @@ func (fAPI *FakeAPI) createNode(name string, isReady v1.ConditionStatus, isLabel
 	return node, nil
 }
 
-func TestRunNodeInformerCase1(t *testing.T) {
+func TestRunNodeInformer(t *testing.T) {
 	/*
 		- new node added with required label and required node status
 		- this particular node deleted
@@ -151,161 +157,84 @@ func TestRunNodeInformerCase1(t *testing.T) {
 		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
 	}()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		pod, err := api.createNode("node01", v1.ConditionTrue, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, pod)
-		t.Logf("node created")
-	}()
-	wg.Wait()
+	cases := []struct {
+		caseName                               string
+		isLabelledOnCreate, isLabelledOnUpdate bool
+		isReadyOnCreate, isReadyOnUpdate       v1.ConditionStatus
+	}{
+		{"case1", true, true, v1.ConditionTrue, v1.ConditionTrue},
+		{"case2", true, true, v1.ConditionFalse, v1.ConditionTrue},
+		{"case3", true, false, v1.ConditionTrue, v1.ConditionTrue},
+		{"case4", true, true, v1.ConditionTrue, v1.ConditionFalse},
+	}
 
-	node, err := api.getNode("node01")
-	assert.Nil(t, err)
-	assert.NotNil(t, node)
+	for _, tc := range cases {
+		t.Run(tc.caseName, func(t *testing.T) {
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				pod, err := api.createNode("node01", tc.isReadyOnCreate, tc.isLabelledOnCreate)
+				assert.Nil(t, err)
+				assert.NotNil(t, pod)
+				t.Logf("node created")
+			}()
+			wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		err := api.deleteNode("node01")
-		assert.Nil(t, err)
-		t.Logf("node deleted")
-	}()
-	wg.Wait()
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				updatedNode, err := api.updateNode("node01", tc.isReadyOnUpdate, tc.isLabelledOnUpdate, "123456")
+				assert.NotNil(t, updatedNode)
+				assert.Nil(t, err)
+				t.Logf("node updated")
+			}()
+			wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		worker := types.NewWorker("", node.Name, v1.ConditionTrue)
-		for {
-			cluster.Mu.Lock()
-			_, found := findWorker(cluster.Workers, *worker)
-			cluster.Mu.Unlock()
-			if !found {
-				t.Logf("node delete test succeeded")
-				break
-			}
-		}
-	}()
-	wg.Wait()
-}
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				node, err := api.getNode("node01")
+				assert.Nil(t, err)
+				assert.NotNil(t, node)
+				t.Logf("node fetched")
+				assert.Equal(t, tc.isReadyOnUpdate, node.Status.Conditions[0].Status)
+			}()
+			wg.Wait()
 
-func TestRunNodeInformerCase2(t *testing.T) {
-	/*
-		- new node added with required label and required node status
-		- this particular node's node status updated as NotReady
-	*/
-	api := getFakeAPI()
-	assert.NotNil(t, api)
+			node, err := api.getNode("node01")
+			assert.Nil(t, err)
+			assert.NotNil(t, node)
 
-	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
-	opts.Mu.Unlock()
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				err := api.deleteNode("node01")
+				assert.Nil(t, err)
+				t.Logf("node deleted")
+			}()
+			wg.Wait()
 
-	var clusters []*types.Cluster
-	nginxConf := types.NewNginxConf(clusters)
-	cluster := types.NewCluster("", make([]*types.Worker, 0))
-	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
-
-	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		// TODO: panics when isLabelled is passed as false
-		pod, err := api.createNode("node01", v1.ConditionTrue, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, pod)
-		t.Logf("node created")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		updatedNode, err := api.updateNode("node01", v1.ConditionFalse, "123456")
-		assert.NotNil(t, updatedNode)
-		assert.Nil(t, err)
-		t.Logf("node updated")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		node, err := api.getNode("node01")
-		assert.Nil(t, err)
-		assert.NotNil(t, node)
-		t.Logf("node fetched")
-		assert.Equal(t, v1.ConditionFalse, node.Status.Conditions[0].Status)
-	}()
-	wg.Wait()
-}
-
-func TestRunNodeInformerCase3(t *testing.T) {
-	/*
-		- new node added with required label and required node status
-		- this particular node's node status updated as Ready
-	*/
-	api := getFakeAPI()
-	assert.NotNil(t, api)
-
-	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
-	opts.Mu.Unlock()
-
-	var clusters []*types.Cluster
-	nginxConf := types.NewNginxConf(clusters)
-	cluster := types.NewCluster("", make([]*types.Worker, 0))
-	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
-
-	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		pod, err := api.createNode("node01", v1.ConditionTrue, true)
-		assert.Nil(t, err)
-		assert.NotNil(t, pod)
-		t.Logf("node created")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		updatedNode, err := api.updateNode("node01", v1.ConditionFalse, "123456")
-		assert.NotNil(t, updatedNode)
-		assert.Nil(t, err)
-		t.Logf("node updated")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		node, err := api.getNode("node01")
-		assert.Nil(t, err)
-		assert.NotNil(t, node)
-		t.Logf("node fetched")
-		assert.Equal(t, v1.ConditionFalse, node.Status.Conditions[0].Status)
-	}()
-	wg.Wait()
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				worker := types.NewWorker("", node.Name, v1.ConditionTrue)
+				for {
+					cluster.Mu.Lock()
+					_, found := findWorker(cluster.Workers, *worker)
+					cluster.Mu.Unlock()
+					if !found {
+						t.Logf("node delete test succeeded")
+						break
+					}
+				}
+			}()
+			wg.Wait()
+		})
+	}
 }

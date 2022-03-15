@@ -21,7 +21,7 @@ func (fAPI *FakeAPI) getService(name string) (*v1.Service, error) {
 	return fAPI.ClientSet.CoreV1().Services(fAPI.Namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (fAPI *FakeAPI) createService(name string, containsAnnotation bool) (*v1.Service, error) {
+func (fAPI *FakeAPI) createService(name string, serviceType v1.ServiceType, annotationEnabled bool) (*v1.Service, error) {
 	service := &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -33,7 +33,7 @@ func (fAPI *FakeAPI) createService(name string, containsAnnotation bool) (*v1.Se
 				"app": name,
 			},
 			Annotations: map[string]string{
-				opts.CustomAnnotation: strconv.FormatBool(containsAnnotation),
+				opts.CustomAnnotation: strconv.FormatBool(annotationEnabled),
 			},
 		},
 		Spec: v1.ServiceSpec{
@@ -52,7 +52,7 @@ func (fAPI *FakeAPI) createService(name string, containsAnnotation bool) (*v1.Se
 			Selector: map[string]string{
 				"app": name,
 			},
-			Type: v1.ServiceTypeNodePort,
+			Type: serviceType,
 		},
 	}
 
@@ -66,14 +66,15 @@ func (fAPI *FakeAPI) createService(name string, containsAnnotation bool) (*v1.Se
 	return node, nil
 }
 
-func (fAPI *FakeAPI) updateService(name string, annotationEnabled, updateNodeport bool, version string) (*v1.Service, error) {
+func (fAPI *FakeAPI) updateService(name string, annotationEnabled, updateNodeport bool, serviceType v1.ServiceType, version string) (*v1.Service, error) {
 	var err error
 	service, _ := fAPI.getService(name)
 	service.Annotations[opts.CustomAnnotation] = strconv.FormatBool(annotationEnabled)
 	service.ResourceVersion = version
-	if updateNodeport {
+	if updateNodeport && serviceType == v1.ServiceTypeNodePort {
 		service.Spec.Ports[0].NodePort = service.Spec.Ports[0].NodePort + 1
 	}
+	service.Spec.Type = serviceType
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	defer cancel()
@@ -91,7 +92,7 @@ func (fAPI *FakeAPI) deleteService(name string) error {
 	return fAPI.ClientSet.CoreV1().Services(fAPI.Namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-func TestRunServiceInformerCase1(t *testing.T) {
+func TestRunServiceInformer(t *testing.T) {
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
@@ -109,228 +110,77 @@ func TestRunServiceInformerCase1(t *testing.T) {
 		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
 	}()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.createService("nginx-a", true)
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service created without required annotations")
-	}()
-	wg.Wait()
+	cases := []struct {
+		caseName                                                             string
+		serviceTypeOnCreate, serviceTypeOnUpdate                             v1.ServiceType
+		annotationEnabledOnCreate, annotationEnabledOnUpdate, updateNodeport bool
+	}{
+		{"case1", v1.ServiceTypeNodePort, v1.ServiceTypeNodePort,
+			true, true, false},
+		{"case2", v1.ServiceTypeNodePort, v1.ServiceTypeNodePort,
+			true, true, true},
+		{"case3", v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort,
+			true, false, false},
+		{"case4", v1.ServiceTypeNodePort, v1.ServiceTypeNodePort,
+			true, false, false},
 
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.updateService("nginx-a", false, false, "123456")
-		assert.NotNil(t, service)
-		assert.Nil(t, err)
-		t.Logf("service updated with required annotations")
-	}()
-	wg.Wait()
+		{"case5", v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort,
+			false, true, false},
+	}
 
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.getService("nginx-a")
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service fetched")
-		assert.Equal(t, "false", service.Annotations[opts.CustomAnnotation])
-	}()
-	wg.Wait()
-}
+	for _, tc := range cases {
+		t.Run(tc.caseName, func(t *testing.T) {
+			var wg sync.WaitGroup
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				service, err := api.createService("nginx-a", tc.serviceTypeOnCreate, tc.annotationEnabledOnCreate)
+				assert.Nil(t, err)
+				assert.NotNil(t, service)
+			}()
+			wg.Wait()
 
-func TestRunServiceInformerCase2(t *testing.T) {
-	api := getFakeAPI()
-	assert.NotNil(t, api)
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				service, err := api.updateService("nginx-a", tc.annotationEnabledOnUpdate, tc.updateNodeport,
+					tc.serviceTypeOnUpdate, "123456")
+				assert.NotNil(t, service)
+				assert.Nil(t, err)
+			}()
+			wg.Wait()
 
-	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
-	opts.Mu.Unlock()
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				service, err := api.getService("nginx-a")
+				assert.Nil(t, err)
+				assert.NotNil(t, service)
+				assert.Equal(t, strconv.FormatBool(tc.annotationEnabledOnUpdate), service.Annotations[opts.CustomAnnotation])
+			}()
+			wg.Wait()
 
-	var clusters []*types.Cluster
-	nginxConf := types.NewNginxConf(clusters)
-	cluster := types.NewCluster("", make([]*types.Worker, 0))
-	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
-	t.Logf(opts.CustomAnnotation)
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				err := api.deleteService("nginx-a")
+				assert.Nil(t, err)
+			}()
+			wg.Wait()
 
-	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.createService("nginx-a", false)
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service created without required annotations")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.updateService("nginx-a", true, false, "123456")
-		assert.NotNil(t, service)
-		assert.Nil(t, err)
-		t.Logf("service updated with required annotations")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		err := api.deleteService("nginx-a")
-		assert.Nil(t, err)
-		t.Logf("service deleted")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.getService("nginx-a")
-		assert.NotNil(t, err)
-		assert.Nil(t, service)
-	}()
-	wg.Wait()
-}
-
-func TestRunServiceInformerCase3(t *testing.T) {
-	api := getFakeAPI()
-	assert.NotNil(t, api)
-
-	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
-	opts.Mu.Unlock()
-
-	var clusters []*types.Cluster
-	nginxConf := types.NewNginxConf(clusters)
-	cluster := types.NewCluster("", make([]*types.Worker, 0))
-	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
-	t.Logf(opts.CustomAnnotation)
-
-	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.createService("nginx-a", true)
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service created without required annotations")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.updateService("nginx-a", true, false, "123456")
-		assert.NotNil(t, service)
-		assert.Nil(t, err)
-		t.Logf("service updated with required annotations")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.getService("nginx-a")
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service fetched")
-		assert.Equal(t, "true", service.Annotations[opts.CustomAnnotation])
-	}()
-	wg.Wait()
-}
-
-func TestRunServiceInformerCase4(t *testing.T) {
-	api := getFakeAPI()
-	assert.NotNil(t, api)
-
-	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
-	opts.Mu.Unlock()
-
-	var clusters []*types.Cluster
-	nginxConf := types.NewNginxConf(clusters)
-	cluster := types.NewCluster("", make([]*types.Worker, 0))
-	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
-	t.Logf(opts.CustomAnnotation)
-
-	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.createService("nginx-a", true)
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service created without required annotations")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.updateService("nginx-a", true, true, "123456")
-		assert.NotNil(t, service)
-		assert.Nil(t, err)
-		t.Logf("service updated with required annotations")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.getService("nginx-a")
-		assert.Nil(t, err)
-		assert.NotNil(t, service)
-		t.Logf("service fetched")
-		assert.Equal(t, "true", service.Annotations[opts.CustomAnnotation])
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		err := api.deleteService("nginx-a")
-		assert.Nil(t, err)
-		t.Logf("service deleted")
-	}()
-	wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		time.Sleep(2 * time.Second)
-		defer wg.Done()
-		service, err := api.getService("nginx-a")
-		assert.NotNil(t, err)
-		assert.Nil(t, service)
-	}()
-	wg.Wait()
+			wg.Add(1)
+			go func() {
+				time.Sleep(2 * time.Second)
+				defer wg.Done()
+				service, err := api.getService("nginx-a")
+				assert.NotNil(t, err)
+				assert.Nil(t, service)
+			}()
+			wg.Wait()
+		})
+	}
 }
