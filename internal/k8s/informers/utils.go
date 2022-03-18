@@ -14,45 +14,47 @@ import (
 
 func addWorkerToNodePorts(nodePorts []*types.NodePort, worker *types.Worker) {
 	for _, v := range nodePorts {
-		_, found := findWorker(v.Workers, *worker)
+		_, found := findWorker(v.Workers, worker)
 		if !found {
-			addWorker(&v.Workers, worker)
+			v.Workers = append(v.Workers, worker)
 		}
 	}
 }
 
-func removeWorkerFromNodePorts(cluster *types.Cluster, worker *types.Worker) {
-	for _, v := range cluster.NodePorts {
-		index, found := findWorker(v.Workers, *worker)
+func removeWorkerFromNodePorts(nodePorts []*types.NodePort, worker *types.Worker) {
+	for _, v := range nodePorts {
+		index, found := findWorker(v.Workers, worker)
 		if found {
-			removeWorker(cluster, index)
+			v.Workers = append((v.Workers)[:index], (v.Workers)[index+1:]...)
 		}
 	}
 }
 
 func addWorkersToNodePort(workers []*types.Worker, nodePort *types.NodePort) {
 	for _, v := range workers {
-		_, found := findWorker(nodePort.Workers, *v)
+		_, found := findWorker(nodePort.Workers, v)
 		if !found {
-			addWorker(&nodePort.Workers, v)
+			nodePort.Workers = append(nodePort.Workers, v)
 		}
 	}
 }
 
-func addWorker(slice *[]*types.Worker, worker *types.Worker) {
-	_, found := findWorker(*slice, *worker)
+func addWorker(cluster *types.Cluster, worker *types.Worker) {
+	_, found := findWorker(cluster.Workers, worker)
 	if !found {
-		*slice = append(*slice, worker)
+		cluster.Mu.Lock()
+		cluster.Workers = append(cluster.Workers, worker)
+		cluster.Mu.Unlock()
 	}
 }
 
-func removeWorker(cluster *types.Cluster, index int) {
+func removeWorkerFromCluster(cluster *types.Cluster, index int) {
 	cluster.Mu.Lock()
 	cluster.Workers = append((cluster.Workers)[:index], (cluster.Workers)[index+1:]...)
 	cluster.Mu.Unlock()
 }
 
-func findWorker(workers []*types.Worker, worker types.Worker) (int, bool) {
+func findWorker(workers []*types.Worker, worker *types.Worker) (int, bool) {
 	for i, item := range workers {
 		if worker.Equals(item) {
 			return i, true
@@ -62,13 +64,13 @@ func findWorker(workers []*types.Worker, worker types.Worker) (int, bool) {
 }
 
 func addNodePort(nodePorts *[]*types.NodePort, nodePort *types.NodePort) {
-	_, found := findNodePort(*nodePorts, *nodePort)
+	_, found := findNodePort(*nodePorts, nodePort)
 	if !found {
 		*nodePorts = append(*nodePorts, nodePort)
 	}
 }
 
-func findNodePort(nodePorts []*types.NodePort, nodePort types.NodePort) (int, bool) {
+func findNodePort(nodePorts []*types.NodePort, nodePort *types.NodePort) (int, bool) {
 	for i, item := range nodePorts {
 		if nodePort.Equals(item) {
 			return i, true
@@ -82,7 +84,7 @@ func removeNodePort(nodePorts *[]*types.NodePort, index int) {
 }
 
 func updateNodePort(nodePorts *[]*types.NodePort, workers []*types.Worker, oldNodePort *types.NodePort, newNodePort *types.NodePort) {
-	oldIndex, oldFound := findNodePort(*nodePorts, *oldNodePort)
+	oldIndex, oldFound := findNodePort(*nodePorts, oldNodePort)
 	if oldFound {
 		removeNodePort(nodePorts, oldIndex)
 	}

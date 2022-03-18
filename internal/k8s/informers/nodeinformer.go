@@ -31,11 +31,13 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 
 				// add Worker to cluster.Workers slice
-				addWorker(&cluster.Workers, worker)
+				addWorker(cluster, worker)
 				metrics.TargetNodeCounter.Inc()
 
 				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
+				cluster.Mu.Lock()
 				addWorkerToNodePorts(cluster.NodePorts, worker)
+				cluster.Mu.Unlock()
 
 				// Apply changes to the template
 				ncgo.Mu.Lock()
@@ -63,16 +65,16 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				oldWorker := types.NewWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
 				newWorker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
 
-				oldWorkerIndex, _ := findWorker(cluster.Workers, *oldWorker)
+				oldWorkerIndex, _ := findWorker(cluster.Workers, oldWorker)
 				if newWorker.NodeCondition == v1.ConditionTrue && newOk {
 					logger.Info("node is still healthy and labelled, skipping...",
 						zap.String("node", oldWorker.HostIP))
 				} else {
 					logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
 						zap.String("node", oldWorker.HostIP))
-					removeWorker(cluster, oldWorkerIndex)
+					removeWorkerFromCluster(cluster, oldWorkerIndex)
 
-					removeWorkerFromNodePorts(cluster, oldWorker)
+					removeWorkerFromNodePorts(cluster.NodePorts, oldWorker)
 
 					logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
 						zap.String("node", oldWorker.HostIP))
@@ -100,13 +102,13 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 			nodeReady := isNodeReady(node)
 			worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
 			logger.Info("delete event fetched for node", zap.String("node", worker.HostIP))
-			index, found := findWorker(cluster.Workers, *worker)
+			index, found := findWorker(cluster.Workers, worker)
 			if found {
 				logger.Info("node found in the cluster.Workers, removing...", zap.String("node", worker.HostIP))
-				removeWorker(cluster, index)
+				removeWorkerFromCluster(cluster, index)
 				logger.Info("successfully removed node from cluster.Workers slice!", zap.String("node", worker.HostIP))
 
-				removeWorkerFromNodePorts(cluster, worker)
+				removeWorkerFromNodePorts(cluster.NodePorts, worker)
 				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts", zap.String("node", worker.HostIP))
 				metrics.TargetNodeCounter.Desc()
 

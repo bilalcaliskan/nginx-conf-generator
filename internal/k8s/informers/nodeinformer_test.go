@@ -2,9 +2,11 @@ package informers
 
 import (
 	"context"
+	"fmt"
 	"nginx-conf-generator/internal/k8s/types"
 	"nginx-conf-generator/internal/logging"
 	"nginx-conf-generator/internal/options"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -137,10 +139,6 @@ func (fAPI *FakeAPI) createNode(name string, isReady v1.ConditionStatus, isLabel
 }
 
 func TestRunNodeInformer(t *testing.T) {
-	/*
-		- new node added with required label and required node status
-		- this particular node deleted
-	*/
 	api := getFakeAPI()
 	assert.NotNil(t, api)
 
@@ -181,6 +179,29 @@ func TestRunNodeInformer(t *testing.T) {
 				t.Logf("node created")
 			}()
 			wg.Wait()
+
+			time.Sleep(2 * time.Second)
+			/*port, _ := strconv.ParseInt(fmt.Sprintf("3044%d", 6), 10, 32)
+			cluster.Mu.Lock()
+			nodeport := &types.NodePort{
+				MasterIP: "",
+				Port:     int32(port),
+				Workers:  cluster.Workers,
+			}
+			addNodePort(&cluster.NodePorts, nodeport)
+			cluster.Mu.Unlock()*/
+
+			for i := 0; i < 5; i++ {
+				port, _ := strconv.ParseInt(fmt.Sprintf("3044%d", i), 10, 32)
+				cluster.Mu.Lock()
+				nodeport := &types.NodePort{
+					MasterIP: "",
+					Port:     int32(port),
+					Workers:  cluster.Workers,
+				}
+				addNodePort(&cluster.NodePorts, nodeport)
+				cluster.Mu.Unlock()
+			}
 
 			wg.Add(1)
 			go func() {
@@ -226,7 +247,7 @@ func TestRunNodeInformer(t *testing.T) {
 				worker := types.NewWorker("", node.Name, v1.ConditionTrue)
 				for {
 					cluster.Mu.Lock()
-					_, found := findWorker(cluster.Workers, *worker)
+					_, found := findWorker(cluster.Workers, worker)
 					cluster.Mu.Unlock()
 					if !found {
 						t.Logf("node delete test succeeded")

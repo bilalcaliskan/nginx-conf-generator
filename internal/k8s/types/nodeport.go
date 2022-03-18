@@ -1,9 +1,12 @@
 package types
 
+import "sync"
+
 type NodePort struct {
 	MasterIP string
 	Port     int32
 	Workers  []*Worker
+	Mu       sync.Mutex
 }
 
 func NewNodePort(masterIP string, port int32) *NodePort {

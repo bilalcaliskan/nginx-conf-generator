@@ -1,6 +1,8 @@
 package types
 
 import (
+	"sync"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -8,6 +10,7 @@ import (
 type Worker struct {
 	MasterIP, HostIP string
 	NodeCondition    v1.ConditionStatus
+	Mu               sync.Mutex
 }
 
 // NewWorker creates a Worker struct with specified parameters and returns it

@@ -34,7 +34,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 					zap.String("namespace", service.Namespace), zap.Int32("nodePort", service.Spec.Ports[0].NodePort))
 
 				nodePort := types.NewNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
-				_, found := findNodePort(cluster.NodePorts, *nodePort)
+				_, found := findNodePort(cluster.NodePorts, nodePort)
 				if !found {
 					logger.Info("adding nodePort to backend.NodePorts", zap.Int32("nodePort", nodePort.Port))
 					addNodePort(&cluster.NodePorts, nodePort)
@@ -87,7 +87,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 						}
 					} else {
 						oldNodePort := types.NewNodePort(cluster.MasterIP, oldService.Spec.Ports[0].NodePort)
-						oldIndex, oldFound := findNodePort(cluster.NodePorts, *oldNodePort)
+						oldIndex, oldFound := findNodePort(cluster.NodePorts, oldNodePort)
 						if oldFound {
 							logger.Info("removing service from cluster.NodePorts because it is no more nodePort "+
 								"type or no more labelled!", zap.String("masterIP", cluster.MasterIP),
@@ -100,7 +100,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 					}
 				} else if newOk && newService.Spec.Type == v1.ServiceTypeNodePort {
 					newNodePort := types.NewNodePort(cluster.MasterIP, newService.Spec.Ports[0].NodePort)
-					_, newFound := findNodePort(cluster.NodePorts, *newNodePort)
+					_, newFound := findNodePort(cluster.NodePorts, newNodePort)
 					if !newFound {
 						logger.Info("adding service to cluster.NodePorts because it is labelled and nodePort "+
 							"type service", zap.String("name", newService.Name),
@@ -139,7 +139,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 
 			if service.Spec.Type == v1.ServiceTypeNodePort && ok {
 				nodePort := types.NewNodePort(cluster.MasterIP, service.Spec.Ports[0].NodePort)
-				index, found := findNodePort(cluster.NodePorts, *nodePort)
+				index, found := findNodePort(cluster.NodePorts, nodePort)
 				if found {
 					logger.Info("valid service deleted, removing from cluster.NodePorts",
 						zap.String("name", service.Name), zap.String("namespace", service.Namespace))
