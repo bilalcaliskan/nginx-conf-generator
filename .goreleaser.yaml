@@ -1,3 +1,4 @@
+---
 project_name: nginx-conf-generator
 env:
   - CGO_ENABLED=0

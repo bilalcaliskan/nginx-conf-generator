@@ -28,7 +28,7 @@ nginx-conf-generator can be customized with several command line arguments:
 --workerNodeLabel       string      label to specify worker nodes, defaults to node-role.k8s.io/worker=
 --customAnnotation      string      annotation to specify selectable services, defaults to nginx-conf-generator/enabled
 --templateInputFile     string      input path of the template file, defaults to ./resources/default.conf.tmpl
---templateOutputFile    string      output path of the template file, defaults to /etc/nginx/sites-enabled/default
+--templateOutputFile    string      output path of the template file, defaults to /etc/nginx/conf.d/default
 --metricsPort           int         port of the metrics server, defaults to 5000
 --writeTimeoutSeconds   int         write timeout of the metrics server, defaults to 10
 --readTimeoutSeconds    int         read timeout of the metrics server, defaults to 10

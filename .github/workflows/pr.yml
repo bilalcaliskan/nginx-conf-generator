@@ -1,5 +1,4 @@
 ---
-
 name: PR
 on:
   pull_request:
@@ -47,7 +46,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -64,6 +63,7 @@ jobs:
             sudo nginx
           elif [ "$RUNNER_OS" == "macOS" ]; then
             brew install nginx
+            sudo ln -s /usr/local/etc/nginx /etc/nginx
             sudo nginx
           else
             echo "$RUNNER_OS not supported"
@@ -111,6 +111,7 @@ jobs:
             sudo nginx
           elif [ "$RUNNER_OS" == "macOS" ]; then
             brew install nginx
+            sudo ln -s /usr/local/etc/nginx /etc/nginx
             sudo nginx
           else
             echo "$RUNNER_OS not supported"
@@ -118,7 +119,7 @@ jobs:
           fi
         shell: bash
       - name: Coverage Test
-        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic -exec sudo ./...
+        run: go test ./... -race -p 1 -coverprofile=coverage.txt -covermode=atomic -exec sudo ./...
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -128,7 +129,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install Go

@@ -4,7 +4,8 @@ import (
 	"github.com/dimiro1/banner"
 	"go.uber.org/zap"
 	"io/ioutil"
-	"nginx-conf-generator/internal/k8s"
+	"nginx-conf-generator/internal/k8s/informers"
+	"nginx-conf-generator/internal/k8s/types"
 	"nginx-conf-generator/internal/logging"
 	"nginx-conf-generator/internal/metrics"
 	"nginx-conf-generator/internal/options"
@@ -13,10 +14,8 @@ import (
 )
 
 var (
-	clusters  []*k8s.Cluster
-	nginxConf = &k8s.NginxConf{
-		Clusters: clusters,
-	}
+	clusters          []*types.Cluster
+	nginxConf         = types.NewNginxConf(clusters)
 	ncgo              *options.NginxConfGeneratorOptions
 	logger            *zap.Logger
 	kubeConfigPathArr []string
@@ -40,22 +39,24 @@ func main() {
 	}()
 
 	for _, path := range kubeConfigPathArr {
-		restConfig, err := k8s.GetConfig(path)
+		restConfig, err := informers.GetConfig(path)
 		if err != nil {
 			logger.Fatal("fatal error occurred while getting k8s config", zap.String("error", err.Error()))
 		}
 
-		clientSet, err := k8s.GetClientSet(restConfig)
+		clientSet, err := informers.GetClientSet(restConfig)
 		if err != nil {
 			logger.Fatal("fatal error occurred while getting clientset", zap.String("error", err.Error()))
 		}
 
 		masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
-		cluster := k8s.NewCluster(masterIp, make([]*k8s.Worker, 0))
+		cluster := types.NewCluster(masterIp, make([]*types.Worker, 0))
 		nginxConf.Clusters = append(nginxConf.Clusters, cluster)
+		logger := logging.NewLogger()
+		logger.With(zap.String("masterIP", cluster.MasterIP))
 
-		k8s.RunNodeInformer(cluster, clientSet, ncgo, nginxConf)
-		k8s.RunServiceInformer(cluster, clientSet, ncgo, nginxConf)
+		informers.RunNodeInformer(cluster, clientSet, logger, ncgo, nginxConf)
+		informers.RunServiceInformer(cluster, clientSet, logger, ncgo, nginxConf)
 	}
 
 	go func() {

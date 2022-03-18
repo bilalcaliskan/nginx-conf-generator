@@ -1,9 +1,11 @@
 package options
 
 import (
-	"github.com/spf13/pflag"
 	"os"
 	"path/filepath"
+	"sync"
+
+	"github.com/spf13/pflag"
 )
 
 var nginxConfGeneratorOptions = &NginxConfGeneratorOptions{}
@@ -33,6 +35,7 @@ type NginxConfGeneratorOptions struct {
 	ReadTimeoutSeconds int
 	// MetricsEndpoint is the endpoint to consume prometheus metrics
 	MetricsEndpoint string
+	Mu              sync.Mutex
 }
 
 // GetNginxConfGeneratorOptions returns the pointer of NginxConfGeneratorOptions
@@ -44,13 +47,13 @@ func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 	// filepath.Join(os.Getenv("HOME")
 	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
 		"comma separated list of kubeconfig file paths to access with the cluster")
-	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "node-role.kubernetes.io/worker", "label to specify "+
-		"worker nodes, defaults to node-role.k8s.io/worker=")
+	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "worker", "label to specify "+
+		"worker nodes, defaults to worker")
 	flag.StringVar(&ncgo.CustomAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
 		"selectable services")
 	flag.StringVar(&ncgo.TemplateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input "+
 		"path of the template file")
-	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/sites-enabled/default", "output "+
+	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/conf.d/default", "output "+
 		"path of the template file")
 	flag.IntVar(&ncgo.MetricsPort, "metricsPort", 5000, "port of the metrics server")
 	flag.IntVar(&ncgo.WriteTimeoutSeconds, "writeTimeoutSeconds", 10, "write timeout of the metrics server")
