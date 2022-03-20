@@ -22,7 +22,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 		AddFunc: func(obj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn(WarnWorkerLength)
 				return
 			}
 			cluster.Mu.Unlock()
@@ -60,7 +60,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn(WarnWorkerLength)
 				return
 			}
 			cluster.Mu.Unlock()
@@ -135,7 +135,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 		DeleteFunc: func(obj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn(WarnWorkerLength)
 				return
 			}
 			cluster.Mu.Unlock()
