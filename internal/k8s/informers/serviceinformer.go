@@ -54,7 +54,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 
 			if err := applyChanges(ncgo, nginxConf); err != nil {
-				logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+				logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -128,7 +128,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 
 			if applyRequired {
 				if err := applyChanges(ncgo, nginxConf); err != nil {
-					logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+					logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 				}
 			}
 		},
@@ -162,7 +162,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 
 			if err := applyChanges(ncgo, nginxConf); err != nil {
-				logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+				logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 			}
 		},
 	})
