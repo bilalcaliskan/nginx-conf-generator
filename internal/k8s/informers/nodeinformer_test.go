@@ -143,7 +143,7 @@ func TestRunNodeInformer(t *testing.T) {
 	assert.NotNil(t, api)
 
 	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.TemplateInputFile = "../../../resources/ncg.conf.tmpl"
 	opts.Mu.Unlock()
 
 	var clusters []*types.Cluster
@@ -152,7 +152,7 @@ func TestRunNodeInformer(t *testing.T) {
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
 	}()
 
 	cases := []struct {

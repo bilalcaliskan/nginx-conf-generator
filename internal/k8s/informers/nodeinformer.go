@@ -15,20 +15,75 @@ import (
 )
 
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
-func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, ncgo *options.NginxConfGeneratorOptions,
-	nginxConf *types.NginxConf) {
-
+func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, nginxConf *types.NginxConf) {
+	ncgo := options.GetNginxConfGeneratorOptions()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
 	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
-			_, ok := node.Labels[ncgo.WorkerNodeLabel]
-			nodeReady := isNodeReady(node)
+			if val, ok := node.Labels[ncgo.WorkerNodeLabel]; !ok || val != "true" {
+				logger.Debug("node is not properly annotated, skipping...")
+				return
+			}
 
-			if ok && nodeReady == v1.ConditionTrue {
-				logger.Info("adding node to the cluster.Workers", zap.String("node", node.Status.Addresses[0].Address))
-				worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
+			if nodeReady := isNodeReady(node); nodeReady != v1.ConditionTrue {
+				logger.Debug("node is not in Ready status, skipping...")
+				return
+			}
+
+			logger.Info("adding node to the cluster.Workers", zap.String("node", node.Status.Addresses[0].Address))
+			worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, v1.ConditionTrue)
+
+			// add Worker to cluster.Workers slice
+			addWorker(cluster, worker)
+			metrics.TargetNodeCounter.Inc()
+
+			// add Worker to each nodePort.Workers in the cluster.NodePorts slice
+			cluster.Mu.Lock()
+			addWorkerToNodePorts(cluster.NodePorts, worker)
+			cluster.Mu.Unlock()
+
+			if err := applyChanges(ncgo, nginxConf); err != nil {
+				logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+			}
+		},
+		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
+			oldNode := oldObj.(*v1.Node)
+			newNode := newObj.(*v1.Node)
+
+			// check if it's a real update
+			if oldNode.ResourceVersion == newNode.ResourceVersion {
+				logger.Debug("not a real update, skipping")
+				return
+			}
+
+			_, newOk := newNode.Labels[ncgo.WorkerNodeLabel]
+			oldWorker := types.NewWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
+			newWorker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
+
+			if newWorker.NodeCondition != v1.ConditionTrue || !newOk {
+				logger.Debug("updated node is either not Ready or not annotated")
+				if i, found := findWorker(cluster.Workers, oldWorker); found {
+					logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
+						zap.String("node", oldNode.Name))
+					removeWorkerFromCluster(cluster, i)
+					removeWorkerFromNodePorts(cluster.NodePorts, oldWorker)
+
+					logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
+						zap.String("node", oldNode.Name))
+					metrics.TargetNodeCounter.Desc()
+					if err := applyChanges(ncgo, nginxConf); err != nil {
+						logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+					}
+				}
+				return
+			}
+
+			if _, found := findWorker(cluster.Workers, oldWorker); !found {
+				nodeReady := isNodeReady(newNode)
+				logger.Info("adding node to the cluster.Workers", zap.String("node", newNode.Status.Addresses[0].Address))
+				worker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, nodeReady)
 
 				// add Worker to cluster.Workers slice
 				addWorker(cluster, worker)
@@ -38,62 +93,8 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				cluster.Mu.Lock()
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 				cluster.Mu.Unlock()
-
-				// Apply changes to the template
-				ncgo.Mu.Lock()
-				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
-				ncgo.Mu.Unlock()
-				if err != nil {
-					logger.Fatal(ErrRenderTemplate, zap.Error(err))
-				}
-
-				// reload Nginx service
-				if err = reloadNginx(); err != nil {
-					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-				}
-
-				logger.Info(SuccessNginxReload)
-			}
-		},
-		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			oldNode := oldObj.(*v1.Node)
-			newNode := newObj.(*v1.Node)
-
-			// there is an update for sure
-			if oldNode.ResourceVersion != newNode.ResourceVersion {
-				_, newOk := newNode.Labels[ncgo.WorkerNodeLabel]
-				oldWorker := types.NewWorker(cluster.MasterIP, oldNode.Status.Addresses[0].Address, isNodeReady(oldNode))
-				newWorker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, isNodeReady(newNode))
-
-				oldWorkerIndex, _ := findWorker(cluster.Workers, oldWorker)
-				if newWorker.NodeCondition == v1.ConditionTrue && newOk {
-					logger.Info("node is still healthy and labelled, skipping...",
-						zap.String("node", oldWorker.HostIP))
-				} else {
-					logger.Info("node is not healthy or is not labelled, removing from cluster.Workers!",
-						zap.String("node", oldWorker.HostIP))
-					removeWorkerFromCluster(cluster, oldWorkerIndex)
-
-					removeWorkerFromNodePorts(cluster.NodePorts, oldWorker)
-
-					logger.Info("successfully removed node from each nodePort in the cluster.NodePorts",
-						zap.String("node", oldWorker.HostIP))
-					metrics.TargetNodeCounter.Desc()
-
-					// Apply changes to the template
-					ncgo.Mu.Lock()
-					err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
-					ncgo.Mu.Unlock()
-					if err != nil {
-						logger.Fatal(ErrRenderTemplate, zap.Error(err))
-					}
-
-					// reload Nginx service
-					if err = reloadNginx(); err != nil {
-						logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-					}
-
-					logger.Info(SuccessNginxReload)
+				if err := applyChanges(ncgo, nginxConf); err != nil {
+					logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
 				}
 			}
 		},
@@ -101,33 +102,23 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 			node := obj.(*v1.Node)
 			nodeReady := isNodeReady(node)
 			worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, nodeReady)
-			logger.Info("delete event fetched for node", zap.String("node", worker.HostIP))
+			logger.Info("delete event fetched for node", zap.String("node", node.Name))
 			index, found := findWorker(cluster.Workers, worker)
 			if found {
-				logger.Info("node found in the cluster.Workers, removing...", zap.String("node", worker.HostIP))
+				logger.Info("node found in the cluster.Workers, removing...", zap.String("node", node.Name))
 				removeWorkerFromCluster(cluster, index)
-				logger.Info("successfully removed node from cluster.Workers slice!", zap.String("node", worker.HostIP))
+				logger.Info("successfully removed node from cluster.Workers slice!", zap.String("node", node.Name))
 
 				removeWorkerFromNodePorts(cluster.NodePorts, worker)
-				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts", zap.String("node", worker.HostIP))
+				logger.Info("successfully removed node from each nodePort in the cluster.NodePorts", zap.String("node", node.Name))
 				metrics.TargetNodeCounter.Desc()
 
-				// Apply changes to the template
-				ncgo.Mu.Lock()
-				err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, nginxConf)
-				ncgo.Mu.Unlock()
-				if err != nil {
-					logger.Fatal(ErrRenderTemplate, zap.Error(err))
+				if err := applyChanges(ncgo, nginxConf); err != nil {
+					logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
 				}
-
-				// reload Nginx service
-				if err = reloadNginx(); err != nil {
-					logger.Fatal(ErrReloadNginx, zap.String("error", err.Error()))
-				}
-
-				logger.Info(SuccessNginxReload)
 			} else {
-				logger.Info("node not found in the cluster.workers, skipping remove operation", zap.String("node", worker.HostIP))
+				logger.Debug("node not found in the cluster.workers, skipping remove operation",
+					zap.String("node", node.Name))
 			}
 		},
 	})

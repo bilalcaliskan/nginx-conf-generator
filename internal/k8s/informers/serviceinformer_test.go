@@ -97,7 +97,7 @@ func TestRunServiceInformer(t *testing.T) {
 	assert.NotNil(t, api)
 
 	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.TemplateInputFile = "../../../resources/ncg.conf.tmpl"
 	opts.Mu.Unlock()
 
 	var clusters []*types.Cluster
@@ -107,7 +107,7 @@ func TestRunServiceInformer(t *testing.T) {
 	t.Logf(opts.CustomAnnotation)
 
 	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
 	}()
 
 	cases := []struct {
