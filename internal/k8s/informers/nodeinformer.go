@@ -43,7 +43,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 			cluster.Mu.Unlock()
 
 			if err := applyChanges(ncgo, nginxConf); err != nil {
-				logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+				logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
@@ -72,7 +72,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 						zap.String("node", oldNode.Name))
 					metrics.TargetNodeCounter.Desc()
 					if err := applyChanges(ncgo, nginxConf); err != nil {
-						logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+						logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 					}
 				}
 				return
@@ -93,7 +93,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				addWorkerToNodePorts(cluster.NodePorts, worker)
 				cluster.Mu.Unlock()
 				if err := applyChanges(ncgo, nginxConf); err != nil {
-					logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+					logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 				}
 			}
 		},
@@ -113,7 +113,7 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				metrics.TargetNodeCounter.Desc()
 
 				if err := applyChanges(ncgo, nginxConf); err != nil {
-					logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+					logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 				}
 			} else {
 				logger.Debug("node not found in the cluster.workers, skipping remove operation",
