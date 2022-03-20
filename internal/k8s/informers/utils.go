@@ -1,8 +1,10 @@
 package informers
 
 import (
+	"fmt"
 	"html/template"
 	"nginx-conf-generator/internal/k8s/types"
+	"nginx-conf-generator/internal/options"
 	"os"
 	"os/exec"
 
@@ -42,9 +44,7 @@ func addWorkersToNodePort(workers []*types.Worker, nodePort *types.NodePort) {
 func addWorker(cluster *types.Cluster, worker *types.Worker) {
 	_, found := findWorker(cluster.Workers, worker)
 	if !found {
-		cluster.Mu.Lock()
 		cluster.Workers = append(cluster.Workers, worker)
-		cluster.Mu.Unlock()
 	}
 }
 
@@ -88,8 +88,10 @@ func updateNodePort(nodePorts *[]*types.NodePort, workers []*types.Worker, oldNo
 	if oldFound {
 		removeNodePort(nodePorts, oldIndex)
 	}
+	newNodePort.Mu.Lock()
 	addWorkersToNodePort(workers, newNodePort)
 	addNodePort(nodePorts, newNodePort)
+	newNodePort.Mu.Unlock()
 }
 
 // GetConfig creates a rest.Config and returns it
@@ -128,6 +130,22 @@ func reloadNginx() error {
 	err := cmd.Run()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func applyChanges(ncgo *options.NginxConfGeneratorOptions, conf *types.NginxConf) error {
+	// Apply changes to the template
+	ncgo.Mu.Lock()
+	if err := renderTemplate(ncgo.TemplateInputFile, ncgo.TemplateOutputFile, conf); err != nil {
+		return fmt.Errorf("%s, %s", ErrRenderTemplate, err.Error())
+	}
+	ncgo.Mu.Unlock()
+
+	// Reload Nginx service
+	if err := reloadNginx(); err != nil {
+		return fmt.Errorf("%s, %s", ErrReloadNginx, err.Error())
 	}
 
 	return nil

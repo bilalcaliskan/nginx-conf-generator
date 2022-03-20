@@ -21,7 +21,7 @@ func (fAPI *FakeAPI) getService(name string) (*v1.Service, error) {
 	return fAPI.ClientSet.CoreV1().Services(fAPI.Namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func (fAPI *FakeAPI) createService(name string, serviceType v1.ServiceType, annotationEnabled bool) (*v1.Service, error) {
+func (fAPI *FakeAPI) createService(name string, nodePort int32, serviceType v1.ServiceType, annotationEnabled bool) (*v1.Service, error) {
 	service := &v1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -42,6 +42,7 @@ func (fAPI *FakeAPI) createService(name string, serviceType v1.ServiceType, anno
 					Name:     "http",
 					Protocol: v1.ProtocolTCP,
 					Port:     8080,
+					NodePort: nodePort,
 					TargetPort: intstr.IntOrString{
 						Type:   intstr.Int,
 						IntVal: 8080,
@@ -97,7 +98,8 @@ func TestRunServiceInformer(t *testing.T) {
 	assert.NotNil(t, api)
 
 	opts.Mu.Lock()
-	opts.TemplateInputFile = "../../../resources/default.conf.tmpl"
+	opts.TemplateInputFile = "../../../resources/ncg.conf.tmpl"
+	opts.TemplateOutputFile = "/etc/nginx/conf.d/ncg_test.conf"
 	opts.Mu.Unlock()
 
 	var clusters []*types.Cluster
@@ -107,8 +109,16 @@ func TestRunServiceInformer(t *testing.T) {
 	t.Logf(opts.CustomAnnotation)
 
 	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), opts, nginxConf)
+		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
 	}()
+
+	go func() {
+		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
+	}()
+
+	node, err := api.createNode("node01", "10.0.0.44", v1.ConditionTrue, true)
+	assert.Nil(t, err)
+	assert.NotNil(t, node)
 
 	cases := []struct {
 		caseName                                                             string
@@ -135,7 +145,7 @@ func TestRunServiceInformer(t *testing.T) {
 			go func() {
 				time.Sleep(2 * time.Second)
 				defer wg.Done()
-				service, err := api.createService("nginx-a", tc.serviceTypeOnCreate, tc.annotationEnabledOnCreate)
+				service, err := api.createService("nginx-a", 30444, tc.serviceTypeOnCreate, tc.annotationEnabledOnCreate)
 				assert.Nil(t, err)
 				assert.NotNil(t, service)
 			}()

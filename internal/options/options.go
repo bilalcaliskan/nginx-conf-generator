@@ -51,9 +51,9 @@ func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 		"worker nodes, defaults to worker")
 	flag.StringVar(&ncgo.CustomAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
 		"selectable services")
-	flag.StringVar(&ncgo.TemplateInputFile, "templateInputFile", "resources/default.conf.tmpl", "input "+
+	flag.StringVar(&ncgo.TemplateInputFile, "templateInputFile", "resources/ncg.conf.tmpl", "input "+
 		"path of the template file")
-	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/conf.d/default", "output "+
+	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/conf.d/ncg.conf", "output "+
 		"path of the template file")
 	flag.IntVar(&ncgo.MetricsPort, "metricsPort", 5000, "port of the metrics server")
 	flag.IntVar(&ncgo.WriteTimeoutSeconds, "writeTimeoutSeconds", 10, "write timeout of the metrics server")
