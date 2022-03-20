@@ -20,10 +20,12 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 	serviceInformer := informerFactory.Core().V1().Services()
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
 				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
 				return
 			}
+			cluster.Mu.Unlock()
 
 			service := obj.(*v1.Service)
 			if val, ok := service.Annotations[ncgo.CustomAnnotation]; !ok || val != "true" {
@@ -43,8 +45,12 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			_, found := findNodePort(cluster.NodePorts, nodePort)
 			if !found {
 				logger.Info("adding nodePort to backend.NodePorts", zap.Int32("nodePort", nodePort.Port))
+				cluster.Mu.Lock()
 				addNodePort(&cluster.NodePorts, nodePort)
+				cluster.Mu.Unlock()
+				cluster.Mu.Lock()
 				addWorkersToNodePort(cluster.Workers, nodePort)
+				cluster.Mu.Unlock()
 			}
 
 			if err := applyChanges(ncgo, nginxConf); err != nil {
@@ -52,11 +58,12 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
-			// TODO: inspect buggy cases
+			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
 				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
 				return
 			}
+			cluster.Mu.Unlock()
 
 			var applyRequired bool
 
@@ -126,10 +133,12 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
+			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Info("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
 				return
 			}
+			cluster.Mu.Unlock()
 
 			service := obj.(*v1.Service)
 			if val, ok := service.Annotations[ncgo.CustomAnnotation]; !ok || val != "true" {

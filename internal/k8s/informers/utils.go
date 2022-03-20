@@ -44,9 +44,7 @@ func addWorkersToNodePort(workers []*types.Worker, nodePort *types.NodePort) {
 func addWorker(cluster *types.Cluster, worker *types.Worker) {
 	_, found := findWorker(cluster.Workers, worker)
 	if !found {
-		cluster.Mu.Lock()
 		cluster.Workers = append(cluster.Workers, worker)
-		cluster.Mu.Unlock()
 	}
 }
 
@@ -90,8 +88,10 @@ func updateNodePort(nodePorts *[]*types.NodePort, workers []*types.Worker, oldNo
 	if oldFound {
 		removeNodePort(nodePorts, oldIndex)
 	}
+	newNodePort.Mu.Lock()
 	addWorkersToNodePort(workers, newNodePort)
 	addNodePort(nodePorts, newNodePort)
+	newNodePort.Mu.Unlock()
 }
 
 // GetConfig creates a rest.Config and returns it

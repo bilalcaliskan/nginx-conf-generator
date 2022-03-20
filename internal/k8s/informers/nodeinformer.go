@@ -35,12 +35,10 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 			logger.Info("adding node to the cluster.Workers", zap.String("node", node.Status.Addresses[0].Address))
 			worker := types.NewWorker(cluster.MasterIP, node.Status.Addresses[0].Address, v1.ConditionTrue)
 
-			// add Worker to cluster.Workers slice
-			addWorker(cluster, worker)
-			metrics.TargetNodeCounter.Inc()
-
 			// add Worker to each nodePort.Workers in the cluster.NodePorts slice
 			cluster.Mu.Lock()
+			addWorker(cluster, worker)
+			metrics.TargetNodeCounter.Inc()
 			addWorkerToNodePorts(cluster.NodePorts, worker)
 			cluster.Mu.Unlock()
 
@@ -85,9 +83,10 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 				logger.Info("adding node to the cluster.Workers", zap.String("node", newNode.Status.Addresses[0].Address))
 				worker := types.NewWorker(cluster.MasterIP, newNode.Status.Addresses[0].Address, nodeReady)
 
-				// add Worker to cluster.Workers slice
+				cluster.Mu.Lock()
 				addWorker(cluster, worker)
 				metrics.TargetNodeCounter.Inc()
+				cluster.Mu.Unlock()
 
 				// add Worker to each nodePort.Workers in the cluster.NodePorts slice
 				cluster.Mu.Lock()
