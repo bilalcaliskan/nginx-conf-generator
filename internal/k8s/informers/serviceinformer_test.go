@@ -98,6 +98,7 @@ func TestRunServiceInformer(t *testing.T) {
 
 	opts.Mu.Lock()
 	opts.TemplateInputFile = "../../../resources/ncg.conf.tmpl"
+	opts.TemplateOutputFile = "/etc/nginx/conf.d/ncg_test.conf"
 	opts.Mu.Unlock()
 
 	var clusters []*types.Cluster

@@ -71,7 +71,7 @@ func (fAPI *FakeAPI) getNode(name string) (*v1.Node, error) {
 	return fAPI.ClientSet.CoreV1().Nodes().Get(ctx, name, metav1.GetOptions{})
 }
 
-func (fAPI *FakeAPI) createNode(name string, isReady v1.ConditionStatus, isLabelled bool) (*v1.Node, error) {
+func (fAPI *FakeAPI) createNode(name, ip string, isReady v1.ConditionStatus, isLabelled bool) (*v1.Node, error) {
 	node := &v1.Node{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Node",
@@ -118,14 +118,14 @@ func (fAPI *FakeAPI) createNode(name string, isReady v1.ConditionStatus, isLabel
 				},
 			},
 			Addresses: []v1.NodeAddress{
+				{Type: v1.NodeInternalIP, Address: ip},
 				{Type: v1.NodeHostName, Address: name},
-				{Type: v1.NodeInternalIP, Address: "192.168.49.3"},
 			},
 		},
 	}
 
 	if isLabelled {
-		node.ObjectMeta.Labels[opts.WorkerNodeLabel] = ""
+		node.ObjectMeta.Labels[opts.WorkerNodeLabel] = "true"
 	}
 
 	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
@@ -144,6 +144,7 @@ func TestRunNodeInformer(t *testing.T) {
 
 	opts.Mu.Lock()
 	opts.TemplateInputFile = "../../../resources/ncg.conf.tmpl"
+	opts.TemplateOutputFile = "/etc/nginx/conf.d/ncg_test.conf"
 	opts.Mu.Unlock()
 
 	var clusters []*types.Cluster
@@ -173,23 +174,15 @@ func TestRunNodeInformer(t *testing.T) {
 			go func() {
 				time.Sleep(2 * time.Second)
 				defer wg.Done()
-				pod, err := api.createNode("node01", tc.isReadyOnCreate, tc.isLabelledOnCreate)
-				assert.Nil(t, err)
-				assert.NotNil(t, pod)
-				t.Logf("node created")
+				node1, err1 := api.createNode("node01", "10.0.0.44", tc.isReadyOnCreate, tc.isLabelledOnCreate)
+				assert.Nil(t, err1)
+				assert.NotNil(t, node1)
+
+				_, _ = api.createNode("node02", "10.0.0.45", v1.ConditionTrue, true)
 			}()
 			wg.Wait()
 
 			time.Sleep(2 * time.Second)
-			/*port, _ := strconv.ParseInt(fmt.Sprintf("3044%d", 6), 10, 32)
-			cluster.Mu.Lock()
-			nodeport := &types.NodePort{
-				MasterIP: "",
-				Port:     int32(port),
-				Workers:  cluster.Workers,
-			}
-			addNodePort(&cluster.NodePorts, nodeport)
-			cluster.Mu.Unlock()*/
 
 			for i := 0; i < 5; i++ {
 				port, _ := strconv.ParseInt(fmt.Sprintf("3044%d", i), 10, 32)
