@@ -22,7 +22,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 		AddFunc: func(obj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn(WarnWorkerLength)
 				return
 			}
 			cluster.Mu.Unlock()
@@ -54,13 +54,13 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 
 			if err := applyChanges(ncgo, nginxConf); err != nil {
-				logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+				logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 			}
 		},
 		UpdateFunc: func(oldObj interface{}, newObj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn(WarnWorkerLength)
 				return
 			}
 			cluster.Mu.Unlock()
@@ -128,14 +128,14 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 
 			if applyRequired {
 				if err := applyChanges(ncgo, nginxConf); err != nil {
-					logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+					logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 				}
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
-				logger.Warn("length of cluster.Workers is 0, can not add a server without any upstream server")
+				logger.Warn(WarnWorkerLength)
 				return
 			}
 			cluster.Mu.Unlock()
@@ -162,7 +162,7 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 			}
 
 			if err := applyChanges(ncgo, nginxConf); err != nil {
-				logger.Fatal("fatal error occured while applying changes", zap.String("error", err.Error()))
+				logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 			}
 		},
 	})
