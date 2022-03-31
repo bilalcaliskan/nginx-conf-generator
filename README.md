@@ -47,11 +47,19 @@ should have permissions to edit **--templateOutputFile** file and reload nginx p
 > If you want to cover multiple kubernetes clusters, add comma seperated list of kubeconfig paths with **--kubeConfigPaths** argument.
 
 ## Installation
+### Binary
 Binary can be downloaded from [Releases](https://github.com/bilalcaliskan/nginx-conf-generator/releases) page.
 
 After then, you can simply run binary by providing required command line arguments:
 ```shell
 $ ./nginx-conf-generator --kubeConfigPaths ~/.kube/config1,~/.kube/config2 --customAnnotation nginx-conf-generator/enabled
+```
+
+### Homebrew
+This project can be installed with [Homebrew](https://brew.sh/):
+```
+brew tap bilalcaliskan/tap
+brew install bilalcaliskan/tap/nginx-conf-generator
 ```
 
 ## Development
