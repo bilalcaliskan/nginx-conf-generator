@@ -2,13 +2,14 @@ package metrics
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"nginx-conf-generator/internal/options"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRunMetricsServer(t *testing.T) {
@@ -42,7 +43,6 @@ func TestRunMetricsServer(t *testing.T) {
 	body, err := ioutil.ReadAll(resp.Body)
 	assert.Nil(t, err)
 
-	sb := string(body)
-	assert.Contains(t, sb, ProcessedNodePortCounterName)
-	assert.Contains(t, sb, TargetNodePortCounterName)
+	assert.Contains(t, string(body), ProcessedNodePortCounterName)
+	assert.Contains(t, string(body), TargetNodePortCounterName)
 }
