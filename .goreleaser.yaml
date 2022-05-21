@@ -1,15 +1,19 @@
 ---
 project_name: nginx-conf-generator
+
 env:
   - CGO_ENABLED=0
-  - GOFLAGS=-mod=vendor
   - GO111MODULE=auto
+
 before:
   hooks:
-    - go mod vendor
+    - go mod tidy
+    - go mod download
+
 archives:
   - replacements:
       amd64: x86_64
+
 builds:
   - id: binary
     goos:
@@ -17,25 +21,35 @@ builds:
       - darwin
     goarch:
       - amd64
+    binary: nginx-conf-generator
     ldflags:
-      - -s -w
-    main: ./cmd/nginx-conf-generator/main.go
+      - -s -w -X github.com/bilalcaliskan/nginx-conf-generator/cmd.GitVersion={{ .Version }} -X github.com/bilalcaliskan/nginx-conf-generator/cmd.gitCommit={{ .ShortCommit }}  -X github.com/bilalcaliskan/nginx-conf-generator/cmd.buildDate={{ .CommitDate }}
+    main: ./main.go
+
 changelog:
   sort: asc
   filters:
     exclude:
       - '^docs:'
       - '^test:'
+      - '^ci:'
+      - '^build:'
+      - 'README'
+      - '^Merge branch'
+      - '^Merge pull request'
+
+release:
+  github:
+    owner: bilalcaliskan
+    name: nginx-conf-generator
+
 brews:
   - name: nginx-conf-generator
     tap:
-      # The token determines the release type (Github/Gitlab).
       owner: bilalcaliskan
       name: homebrew-tap
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     folder: Formula
-    # Brew fails from multiple 32-bit arm versions.
-    # Specify which version should be used.
     goarm: 6
     homepage: https://github.com/bilalcaliskan/nginx-conf-generator
     license: apache-2.0

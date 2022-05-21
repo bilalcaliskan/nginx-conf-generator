@@ -9,24 +9,24 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
-      - name: Lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.42.1
-          make lint
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          # version: latest
+          version: v1.46.1
 
   vet:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
       - name: Vet
@@ -36,41 +36,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
-      - name: Lint
+      - name: Run Ineffassign
         run: make ineffassign
 
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
-      - name: Install Nginx
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt update
-            sudo apt install nginx
-            sudo nginx
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            brew install nginx
-            sudo ln -s /usr/local/etc/nginx /etc/nginx
-            sudo nginx
-          else
-            echo "$RUNNER_OS not supported"
-            exit 1
-          fi
-        shell: bash
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Test
         run: make test
 
@@ -87,17 +72,15 @@ jobs:
         language: [ 'go' ]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v1
+        uses: github/codeql-action/init@v2
         with:
           languages: ${{ matrix.language }}
-      # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
-      # If this step fails, then you should remove it and run the build manually (see below)
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v1
+        uses: github/codeql-action/autobuild@v2
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v1
+        uses: github/codeql-action/analyze@v2
 
   sonarcloud:
     runs-on: ubuntu-latest
@@ -107,30 +90,15 @@ jobs:
       - ineffassign
       - test
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
-      - name: Install Nginx
-        run: |
-          if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt update
-            sudo apt install nginx
-            sudo nginx
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            brew install nginx
-            sudo ln -s /usr/local/etc/nginx /etc/nginx
-            sudo nginx
-          else
-            echo "$RUNNER_OS not supported"
-            exit 1
-          fi
-        shell: bash
       - name: Coverage Test
-        run: go test ./... -race -p 1 -coverprofile=coverage.txt -covermode=atomic -exec sudo ./...
+        run: go test ./... -race -coverprofile=coverage.txt -covermode=atomic
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -150,15 +118,15 @@ jobs:
       - test
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Test
         run: make build
 
@@ -170,23 +138,23 @@ jobs:
       - build
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: '0'
       - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.36.0
+        uses: anothrNick/github-tag-action@1.39.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WITH_V: true
           DEFAULT_BUMP: patch
 
-  goreleaser:
+  release:
     runs-on: ubuntu-latest
     needs:
       - tag
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Set outputs
@@ -195,8 +163,16 @@ jobs:
           echo "::set-output name=latest_tag::$(git describe --tags $(git rev-list --tags --max-count=1))"
           echo "::set-output name=build_time::$(date -u +'%m-%d-%YT%H:%M:%SZ')"
           echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Docker Login
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.17.x
       - name: Run GoReleaser
@@ -207,8 +183,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
-      - name: Upload assets
-        uses: actions/upload-artifact@v2
-        with:
-          name: nginx-conf-generator
-          path: dist/*
