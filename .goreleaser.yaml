@@ -24,7 +24,7 @@ builds:
     binary: nginx-conf-generator
     ldflags:
       - -s -w -X github.com/bilalcaliskan/nginx-conf-generator/cmd.GitVersion={{ .Version }} -X github.com/bilalcaliskan/nginx-conf-generator/cmd.gitCommit={{ .ShortCommit }}  -X github.com/bilalcaliskan/nginx-conf-generator/cmd.buildDate={{ .CommitDate }}
-    main: ./main.go
+    main: ./cmd/nginx-conf-generator/main.go
 
 changelog:
   sort: asc
