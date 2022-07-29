@@ -35,7 +35,9 @@ type NginxConfGeneratorOptions struct {
 	ReadTimeoutSeconds int
 	// MetricsEndpoint is the endpoint to consume prometheus metrics
 	MetricsEndpoint string
-	Mu              sync.Mutex
+	// BannerFilePath is the relative path to the banner file
+	BannerFilePath string
+	Mu             sync.Mutex
 }
 
 // GetNginxConfGeneratorOptions returns the pointer of NginxConfGeneratorOptions
@@ -58,5 +60,6 @@ func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
 	flag.IntVar(&ncgo.MetricsPort, "metricsPort", 5000, "port of the metrics server")
 	flag.IntVar(&ncgo.WriteTimeoutSeconds, "writeTimeoutSeconds", 10, "write timeout of the metrics server")
 	flag.IntVar(&ncgo.ReadTimeoutSeconds, "readTimeoutSeconds", 10, "read timeout of the metrics server")
+	flag.StringVar(&ncgo.BannerFilePath, "bannerFilePath", "build/ci/banner.txt", "relative path of the banner file")
 	flag.StringVar(&ncgo.MetricsEndpoint, "metricsEndpoint", "/metrics", "endpoint to provide prometheus metrics")
 }
