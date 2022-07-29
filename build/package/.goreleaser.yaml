@@ -13,6 +13,10 @@ before:
 archives:
   - replacements:
       amd64: x86_64
+    files:
+      - build/ci/banner.txt
+      - README.md
+      - LICENSE
 
 builds:
   - id: binary
@@ -34,6 +38,7 @@ changelog:
       - '^test:'
       - '^ci:'
       - '^build:'
+      - '^style:'
       - 'README'
       - '^Merge branch'
       - '^Merge pull request'

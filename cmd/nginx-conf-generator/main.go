@@ -25,7 +25,7 @@ func init() {
 	logger = logging.GetLogger()
 	kubeConfigPathArr = strings.Split(options.GetNginxConfGeneratorOptions().KubeConfigPaths, ",")
 
-	bannerBytes, _ := ioutil.ReadFile("banner.txt")
+	bannerBytes, _ := ioutil.ReadFile(options.GetNginxConfGeneratorOptions().BannerFilePath)
 	banner.Init(os.Stdout, true, false, strings.NewReader(string(bannerBytes)))
 }
 
