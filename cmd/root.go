@@ -59,7 +59,7 @@ func init() {
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:     "nginx-conf-generator",
-	Short:   "Unwanted pod cleaner for Kubernetes(terminating/evicted)",
+	Short:   "A fancy tool which manages Nginx configuration according to Kubernetes NodePort type services",
 	Version: ver.GitVersion,
 	Long: `nginx-conf-generator gets the port of NodePort type services which contains specific annotation. Then modifies
 the Nginx configuration and reloads the Nginx process. nginx-conf-generator can also work with multiple Kubernetes clusters.
