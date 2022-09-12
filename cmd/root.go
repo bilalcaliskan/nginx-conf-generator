@@ -34,9 +34,9 @@ func init() {
 	rootCmd.Flags().StringVarP(&opts.CustomAnnotation, "customAnnotation", "", "nginx-conf-generator/enabled",
 		"annotation to specify selectable services")
 	rootCmd.Flags().StringVarP(&opts.TemplateInputFile, "templateInputFile", "", "resources/ncg.conf.tmpl",
-		"annotation to specify selectable services")
+		"path of the template input file to be able to render and print to --templateOutputFile")
 	rootCmd.Flags().StringVarP(&opts.TemplateOutputFile, "templateOutputFile", "", "/etc/nginx/conf.d/ncg.conf",
-		"annotation to specify selectable services")
+		"path of the template output file which is a valid Nginx conf file")
 	rootCmd.Flags().IntVarP(&opts.MetricsPort, "metricsPort", "", 5000,
 		"port of the metrics server")
 	rootCmd.Flags().IntVarP(&opts.WriteTimeoutSeconds, "writeTimeoutSeconds", "", 10,
