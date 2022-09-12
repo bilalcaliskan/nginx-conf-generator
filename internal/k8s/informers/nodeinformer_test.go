@@ -3,13 +3,14 @@ package informers
 import (
 	"context"
 	"fmt"
-	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/logging"
-	"nginx-conf-generator/internal/options"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/k8s/types"
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/logging"
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -153,7 +154,7 @@ func TestRunNodeInformer(t *testing.T) {
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
 	}()
 
 	cases := []struct {

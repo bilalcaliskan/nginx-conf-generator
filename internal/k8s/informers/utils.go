@@ -3,10 +3,11 @@ package informers
 import (
 	"fmt"
 	"html/template"
-	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/options"
 	"os"
 	"os/exec"
+
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/k8s/types"
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"

@@ -2,14 +2,15 @@ package metrics
 
 import (
 	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/logging"
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
-	"net/http"
-	"nginx-conf-generator/internal/logging"
-	"nginx-conf-generator/internal/options"
-	"time"
 )
 
 const (

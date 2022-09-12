@@ -14,6 +14,7 @@ archives:
   - replacements:
       amd64: x86_64
     files:
+      - resources/ncg.conf.tmpl
       - build/ci/banner.txt
       - README.md
       - LICENSE
@@ -27,8 +28,8 @@ builds:
       - amd64
     binary: nginx-conf-generator
     ldflags:
-      - -s -w -X github.com/bilalcaliskan/nginx-conf-generator/cmd.GitVersion={{ .Version }} -X github.com/bilalcaliskan/nginx-conf-generator/cmd.gitCommit={{ .ShortCommit }}  -X github.com/bilalcaliskan/nginx-conf-generator/cmd.buildDate={{ .CommitDate }}
-    main: ./cmd/nginx-conf-generator/main.go
+      - -s -w -X github.com/bilalcaliskan/nginx-conf-generator/internal/version.gitVersion={{ .Version }} -X github.com/bilalcaliskan/nginx-conf-generator/internal/version.gitCommit={{ .ShortCommit }}  -X github.com/bilalcaliskan/nginx-conf-generator/internal/version.buildDate={{ .CommitDate }}
+    main: ./main.go
 
 changelog:
   sort: asc

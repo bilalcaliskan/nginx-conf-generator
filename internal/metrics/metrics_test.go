@@ -5,9 +5,10 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"nginx-conf-generator/internal/options"
 	"testing"
 	"time"
+
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 
 	"github.com/stretchr/testify/assert"
 )
