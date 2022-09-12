@@ -24,18 +24,18 @@ Also nginx-conf-generator needs to reload nginx process when necessary, you must
 ## Configuration
 nginx-conf-generator can be customized with several command line arguments:
 ```
---kubeConfigPaths       string      comma separated list of kubeconfig file paths to access with the cluster, defaults to ~/.kube.config
---workerNodeLabel       string      boolean label key to specify worker nodes, defaults to worker.
-                                    A node with label worker="true" is used by nginx-conf-generator
---customAnnotation      string      boolean annotation key to specify selectable services, defaults to nginx-conf-generator/enabled.
-                                    A service which is NodePort type and annotated with nginx-conf-generator/enabled="true" is managed
-                                    by nginx-conf-generator
---templateInputFile     string      input path of the template file, defaults to ./resources/default.conf.tmpl
---templateOutputFile    string      output path of the template file, defaults to /etc/nginx/conf.d/ncg.conf
---metricsPort           int         port of the metrics server, defaults to 5000
---writeTimeoutSeconds   int         write timeout of the metrics server, defaults to 10
---readTimeoutSeconds    int         read timeout of the metrics server, defaults to 10
---metricsEndpoint       string      endpoint to provide prometheus metrics, defaults to /metrics
+      --customAnnotation string     annotation to specify selectable services (default "nginx-conf-generator/enabled")
+  -h, --help                        help for nginx-conf-generator
+      --kubeConfigPaths string      comma separated list of kubeconfig file paths to access with the cluster (default "/home/joshsagredo/.kube/config")
+      --metricsEndpoint string      endpoint to provide prometheus metrics (default "/metrics")
+      --metricsPort int             port of the metrics server (default 5000)
+      --readTimeoutSeconds int      read timeout of the metrics server (default 10)
+      --templateInputFile string    annotation to specify selectable services (default "resources/ncg.conf.tmpl")
+      --templateOutputFile string   annotation to specify selectable services (default "/etc/nginx/conf.d/ncg.conf")
+  -v, --verbose                     verbose output of the logging library (default false)
+      --version                     version for nginx-conf-generator
+      --workerNodeLabel string      label to specify worker nodes (default "worker")
+      --writeTimeoutSeconds int     write timeout of the metrics server (default 10)
 ```
 
 > That tool should be run on a Linux host and the user who runs the binary file nginx-conf-generator
@@ -64,7 +64,7 @@ brew install bilalcaliskan/tap/nginx-conf-generator
 
 ## Development
 This project requires below tools while developing:
-- [Golang 1.17](https://golang.org/doc/go1.17)
+- [Golang 1.19](https://golang.org/doc/go1.19)
 - [pre-commit](https://pre-commit.com/)
 - [golangci-lint](https://golangci-lint.run/usage/install/) - required by [pre-commit](https://pre-commit.com/)
 - [gocyclo](https://github.com/fzipp/gocyclo) - required by [pre-commit](https://pre-commit.com/)

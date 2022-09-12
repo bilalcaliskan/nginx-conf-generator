@@ -1,19 +1,10 @@
 package options
 
 import (
-	"os"
-	"path/filepath"
 	"sync"
-
-	"github.com/spf13/pflag"
 )
 
 var nginxConfGeneratorOptions = &NginxConfGeneratorOptions{}
-
-func init() {
-	nginxConfGeneratorOptions.addFlags(pflag.CommandLine)
-	pflag.Parse()
-}
 
 // NginxConfGeneratorOptions contains frequent command line and application options.
 type NginxConfGeneratorOptions struct {
@@ -37,29 +28,12 @@ type NginxConfGeneratorOptions struct {
 	MetricsEndpoint string
 	// BannerFilePath is the relative path to the banner file
 	BannerFilePath string
-	Mu             sync.Mutex
+	// VerboseLog is the verbosity of the logging library
+	VerboseLog bool
+	Mu         sync.Mutex
 }
 
 // GetNginxConfGeneratorOptions returns the pointer of NginxConfGeneratorOptions
 func GetNginxConfGeneratorOptions() *NginxConfGeneratorOptions {
 	return nginxConfGeneratorOptions
-}
-
-func (ncgo *NginxConfGeneratorOptions) addFlags(flag *pflag.FlagSet) {
-	// filepath.Join(os.Getenv("HOME")
-	flag.StringVar(&ncgo.KubeConfigPaths, "kubeConfigPaths", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
-		"comma separated list of kubeconfig file paths to access with the cluster")
-	flag.StringVar(&ncgo.WorkerNodeLabel, "workerNodeLabel", "worker", "label to specify "+
-		"worker nodes, defaults to worker")
-	flag.StringVar(&ncgo.CustomAnnotation, "customAnnotation", "nginx-conf-generator/enabled", "annotation to specify "+
-		"selectable services")
-	flag.StringVar(&ncgo.TemplateInputFile, "templateInputFile", "resources/ncg.conf.tmpl", "input "+
-		"path of the template file")
-	flag.StringVar(&ncgo.TemplateOutputFile, "templateOutputFile", "/etc/nginx/conf.d/ncg.conf", "output "+
-		"path of the template file")
-	flag.IntVar(&ncgo.MetricsPort, "metricsPort", 5000, "port of the metrics server")
-	flag.IntVar(&ncgo.WriteTimeoutSeconds, "writeTimeoutSeconds", 10, "write timeout of the metrics server")
-	flag.IntVar(&ncgo.ReadTimeoutSeconds, "readTimeoutSeconds", 10, "read timeout of the metrics server")
-	flag.StringVar(&ncgo.BannerFilePath, "bannerFilePath", "build/ci/banner.txt", "relative path of the banner file")
-	flag.StringVar(&ncgo.MetricsEndpoint, "metricsEndpoint", "/metrics", "endpoint to provide prometheus metrics")
 }

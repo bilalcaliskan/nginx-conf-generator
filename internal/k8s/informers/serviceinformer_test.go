@@ -2,12 +2,13 @@ package informers
 
 import (
 	"context"
-	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/logging"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/k8s/types"
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/logging"
 
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
@@ -109,11 +110,11 @@ func TestRunServiceInformer(t *testing.T) {
 	t.Logf(opts.CustomAnnotation)
 
 	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
+		RunServiceInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
 	}()
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.NewLogger(), nginxConf)
+		RunNodeInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
 	}()
 
 	node, err := api.createNode("node01", "10.0.0.44", v1.ConditionTrue, true)

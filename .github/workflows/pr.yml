@@ -8,19 +8,18 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Install Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.x
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          # version: latest
-          version: v1.46.1
-          args: --timeout=3m0s
+          go-version-file: "go.mod"
+      - name: Lint code
+        run: make -s lint
+      - name: Clean downloaded binaries
+        run: make -s clean
 
-  vet:
+  fmt:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,26 +27,16 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.x
-      - name: Vet
-        run: make vet
-
-  ineffassign:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.17.x
-      - name: Run Ineffassign
-        run: make ineffassign
+          go-version-file: "go.mod"
+      - name: Run fmt
+        run: make -s fmt
+      - name: Clean downloaded binaries
+        run: make -s clean
 
   test:
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -55,7 +44,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.x
+          go-version-file: "go.mod"
       - name: Install Nginx
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
@@ -72,7 +61,7 @@ jobs:
           fi
         shell: bash
       - name: Test
-        run: make test
+        run: make -s test
 
   codeql:
     runs-on: ubuntu-latest
@@ -101,7 +90,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.x
+          go-version-file: "go.mod"
       - name: Install Nginx
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
@@ -118,7 +107,7 @@ jobs:
           fi
         shell: bash
       - name: Coverage Test
-        run: go test ./... -race -p 1 -coverprofile=coverage.txt -covermode=atomic -exec sudo ./...
+        run: make -s test-with-coverage
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -139,11 +128,11 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
       - name: Install Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.17.x
-      - name: Checkout code
-        uses: actions/checkout@v3
+          go-version-file: "go.mod"
       - name: Test
-        run: make build
+        run: make -s build

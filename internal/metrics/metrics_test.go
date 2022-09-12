@@ -2,10 +2,9 @@ package metrics
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
-	"nginx-conf-generator/internal/options"
 	"testing"
 	"time"
 
@@ -13,7 +12,8 @@ import (
 )
 
 func TestRunMetricsServer(t *testing.T) {
-	opts := options.GetNginxConfGeneratorOptions()
+	opts.MetricsPort = 9090
+	opts.MetricsEndpoint = "/metrics"
 	var (
 		conn net.Conn
 		err  error
@@ -40,7 +40,7 @@ func TestRunMetricsServer(t *testing.T) {
 	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d%s", opts.MetricsPort, opts.MetricsEndpoint))
 	assert.Nil(t, err)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	assert.Nil(t, err)
 
 	assert.Contains(t, string(body), ProcessedNodePortCounterName)

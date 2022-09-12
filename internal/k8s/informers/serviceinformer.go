@@ -1,9 +1,10 @@
 package informers
 
 import (
-	"nginx-conf-generator/internal/k8s/types"
-	"nginx-conf-generator/internal/options"
 	"time"
+
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/k8s/types"
+	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 
 	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
