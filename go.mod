@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/dimiro1/banner v1.1.0
 	github.com/gorilla/mux v1.8.0
-	github.com/prometheus/client_golang v1.13.0
+	github.com/prometheus/client_golang v1.13.1
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.23.0
