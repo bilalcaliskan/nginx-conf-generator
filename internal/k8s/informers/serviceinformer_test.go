@@ -110,11 +110,13 @@ func TestRunServiceInformer(t *testing.T) {
 	t.Logf(opts.CustomAnnotation)
 
 	go func() {
-		RunServiceInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
+		err := RunServiceInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
+		assert.Nil(t, err)
 	}()
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
+		err := RunNodeInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
+		assert.Nil(t, err)
 	}()
 
 	node, err := api.createNode("node01", "10.0.0.44", v1.ConditionTrue, true)

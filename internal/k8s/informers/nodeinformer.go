@@ -3,6 +3,8 @@ package informers
 import (
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/k8s/types"
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/metrics"
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
@@ -16,11 +18,11 @@ import (
 )
 
 // RunNodeInformer spins up a shared informer factory and fetch Kubernetes node events
-func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, nginxConf *types.NginxConf) {
+func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, nginxConf *types.NginxConf) error {
 	ncgo := options.GetNginxConfGeneratorOptions()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	nodeInformer := informerFactory.Core().V1().Nodes()
-	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			if val, ok := node.Labels[ncgo.WorkerNodeLabel]; !ok || val != "true" {
@@ -121,7 +123,10 @@ func RunNodeInformer(cluster *types.Cluster, clientSet kubernetes.Interface, log
 					zap.String("node", node.Name))
 			}
 		},
-	})
+	}); err != nil {
+		return errors.Wrap(err, "unable to run node informer")
+	}
 	informerFactory.Start(wait.NeverStop)
 	informerFactory.WaitForCacheSync(wait.NeverStop)
+	return nil
 }
