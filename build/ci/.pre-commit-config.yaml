@@ -24,7 +24,7 @@ repos:
       - id: go-vet
       - id: go-imports
       - id: go-cyclo
-        args: [-over=28]
+        args: [-over=30]
       - id: no-go-testing
       - id: golangci-lint
       # - id: go-unit-tests

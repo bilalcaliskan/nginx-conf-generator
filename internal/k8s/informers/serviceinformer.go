@@ -3,6 +3,8 @@ package informers
 import (
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/k8s/types"
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 
@@ -15,11 +17,11 @@ import (
 )
 
 // RunServiceInformer spins up a shared informer factory and fetch Kubernetes service events
-func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, nginxConf *types.NginxConf) {
+func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, logger *zap.Logger, nginxConf *types.NginxConf) error {
 	ncgo := options.GetNginxConfGeneratorOptions()
 	informerFactory := informers.NewSharedInformerFactory(clientSet, time.Second*30)
 	serviceInformer := informerFactory.Core().V1().Services()
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			cluster.Mu.Lock()
 			if len(cluster.Workers) == 0 {
@@ -166,7 +168,11 @@ func RunServiceInformer(cluster *types.Cluster, clientSet kubernetes.Interface, 
 				logger.Fatal(ErrApplyChanges, zap.String("error", err.Error()))
 			}
 		},
-	})
+	}); err != nil {
+		return errors.Wrap(err, "unable to run service informer")
+	}
+
 	informerFactory.Start(wait.NeverStop)
 	informerFactory.WaitForCacheSync(wait.NeverStop)
+	return nil
 }

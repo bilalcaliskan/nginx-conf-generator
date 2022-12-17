@@ -154,7 +154,8 @@ func TestRunNodeInformer(t *testing.T) {
 	nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 
 	go func() {
-		RunNodeInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
+		err := RunNodeInformer(cluster, api.ClientSet, logging.GetLogger(), nginxConf)
+		assert.Nil(t, err)
 	}()
 
 	cases := []struct {

@@ -17,6 +17,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Lint code
         run: make -s lint
       - name: Clean downloaded binaries
@@ -31,6 +32,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Run fmt
         run: make -s fmt
       - name: Clean downloaded binaries
@@ -49,6 +51,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Install Nginx
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
@@ -103,6 +106,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Install Nginx
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
@@ -150,6 +154,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Build
         run: make -s build
 
@@ -165,7 +170,7 @@ jobs:
         with:
           fetch-depth: '0'
       - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@1.53.0
+        uses: anothrNick/github-tag-action@1.54.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           WITH_V: true
@@ -190,6 +195,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v3
         with:

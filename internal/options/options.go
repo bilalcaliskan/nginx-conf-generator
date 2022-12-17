@@ -20,10 +20,6 @@ type NginxConfGeneratorOptions struct {
 	TemplateOutputFile string
 	// MetricsPort is the port of the metric server to expose prometheus metrics
 	MetricsPort int
-	// WriteTimeoutSeconds is the timeout of the write timeout for metrics server
-	WriteTimeoutSeconds int
-	// ReadTimeoutSeconds is the timeout of the write timeout for metrics server
-	ReadTimeoutSeconds int
 	// MetricsEndpoint is the endpoint to consume prometheus metrics
 	MetricsEndpoint string
 	// BannerFilePath is the relative path to the banner file

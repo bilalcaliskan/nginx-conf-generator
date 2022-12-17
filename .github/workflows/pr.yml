@@ -14,6 +14,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Lint code
         run: make -s lint
       - name: Clean downloaded binaries
@@ -28,6 +29,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Run fmt
         run: make -s fmt
       - name: Clean downloaded binaries
@@ -45,6 +47,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Install Nginx
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
@@ -91,6 +94,7 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Install Nginx
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
@@ -134,5 +138,6 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: Test
         run: make -s build

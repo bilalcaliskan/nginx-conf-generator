@@ -46,8 +46,8 @@ func RunMetricsServer() error {
 	metricServer := &http.Server{
 		Handler:      router,
 		Addr:         fmt.Sprintf(":%d", opts.MetricsPort),
-		WriteTimeout: time.Duration(int32(opts.WriteTimeoutSeconds)) * time.Second,
-		ReadTimeout:  time.Duration(int32(opts.ReadTimeoutSeconds)) * time.Second,
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  10 * time.Second,
 	}
 	router.Handle(opts.MetricsEndpoint, promhttp.Handler())
 	prometheus.MustRegister(ProcessedNodePortCounter)

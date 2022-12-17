@@ -24,18 +24,20 @@ Also nginx-conf-generator needs to reload nginx process when necessary, you must
 ## Configuration
 nginx-conf-generator can be customized with several command line arguments:
 ```
+Usage:
+  nginx-conf-generator [flags]
+
+Flags:
       --customAnnotation string     annotation to specify selectable services (default "nginx-conf-generator/enabled")
   -h, --help                        help for nginx-conf-generator
       --kubeConfigPaths string      comma separated list of kubeconfig file paths to access with the cluster (default "/home/joshsagredo/.kube/config")
       --metricsEndpoint string      endpoint to provide prometheus metrics (default "/metrics")
       --metricsPort int             port of the metrics server (default 5000)
-      --readTimeoutSeconds int      read timeout of the metrics server (default 10)
-      --templateInputFile string    annotation to specify selectable services (default "resources/ncg.conf.tmpl")
-      --templateOutputFile string   annotation to specify selectable services (default "/etc/nginx/conf.d/ncg.conf")
+      --templateInputFile string    path of the template input file to be able to render and print to --templateOutputFile (default "resources/ncg.conf.tmpl")
+      --templateOutputFile string   path of the template output file which is a valid Nginx conf file (default "/etc/nginx/conf.d/ncg.conf")
   -v, --verbose                     verbose output of the logging library (default false)
       --version                     version for nginx-conf-generator
       --workerNodeLabel string      label to specify worker nodes (default "worker")
-      --writeTimeoutSeconds int     write timeout of the metrics server (default 10)
 ```
 
 > That tool should be run on a Linux host and the user who runs the binary file nginx-conf-generator

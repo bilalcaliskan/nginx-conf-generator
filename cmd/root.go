@@ -8,6 +8,7 @@ import (
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/options"
 	"github.com/bilalcaliskan/nginx-conf-generator/internal/version"
 	"github.com/dimiro1/banner"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
@@ -39,10 +40,6 @@ func init() {
 		"path of the template output file which is a valid Nginx conf file")
 	rootCmd.Flags().IntVarP(&opts.MetricsPort, "metricsPort", "", 5000,
 		"port of the metrics server")
-	rootCmd.Flags().IntVarP(&opts.WriteTimeoutSeconds, "writeTimeoutSeconds", "", 10,
-		"write timeout of the metrics server")
-	rootCmd.Flags().IntVarP(&opts.ReadTimeoutSeconds, "readTimeoutSeconds", "", 10,
-		"read timeout of the metrics server")
 	rootCmd.Flags().StringVarP(&opts.BannerFilePath, "bannerFilePath", "", "build/ci/banner.txt",
 		"relative path of the banner file")
 	rootCmd.Flags().StringVarP(&opts.MetricsEndpoint, "metricsEndpoint", "", "/metrics",
@@ -64,7 +61,7 @@ var rootCmd = &cobra.Command{
 	Long: `nginx-conf-generator gets the port of NodePort type services which contains specific annotation. Then modifies
 the Nginx configuration and reloads the Nginx process. nginx-conf-generator can also work with multiple Kubernetes clusters.
 This means you can route traffic to multiple Kubernetes clusters through a Nginx server for your NodePort type services`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if opts.VerboseLog {
 			logging.Atomic.SetLevel(zap.DebugLevel)
 		}
@@ -93,12 +90,14 @@ This means you can route traffic to multiple Kubernetes clusters through a Nginx
 		for _, path := range kubeConfigPathArr {
 			restConfig, err := informers.GetConfig(path)
 			if err != nil {
-				logger.Fatal("fatal error occurred while getting k8s config", zap.String("error", err.Error()))
+				logger.Error("an error occurred while getting k8s config", zap.String("error", err.Error()))
+				return errors.Wrap(err, "unable to get rest config from k8s client")
 			}
 
 			clientSet, err := informers.GetClientSet(restConfig)
 			if err != nil {
-				logger.Fatal("fatal error occurred while getting clientset", zap.String("error", err.Error()))
+				logger.Error("an error occurred while getting clientset", zap.String("error", err.Error()))
+				return errors.Wrap(err, "unable to get clientset from k8s client")
 			}
 
 			masterIp := strings.Split(strings.Split(restConfig.Host, "//")[1], ":")[0]
@@ -106,13 +105,18 @@ This means you can route traffic to multiple Kubernetes clusters through a Nginx
 			nginxConf.Clusters = append(nginxConf.Clusters, cluster)
 			logger.With(zap.String("masterIP", cluster.MasterIP))
 
-			informers.RunNodeInformer(cluster, clientSet, logger, nginxConf)
-			informers.RunServiceInformer(cluster, clientSet, logger, nginxConf)
+			if err := informers.RunNodeInformer(cluster, clientSet, logger, nginxConf); err != nil {
+				return err
+			}
+
+			if err := informers.RunServiceInformer(cluster, clientSet, logger, nginxConf); err != nil {
+				return err
+			}
 		}
 
 		go func() {
 			if err := metrics.RunMetricsServer(); err != nil {
-				logger.Fatal("fatal error occurred while spinning up metrics server",
+				logger.Fatal("an error occurred while spinning up metrics server",
 					zap.String("error", err.Error()))
 			}
 		}()
