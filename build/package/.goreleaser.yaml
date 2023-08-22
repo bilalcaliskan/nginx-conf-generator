@@ -11,13 +11,13 @@ before:
     - go mod download
 
 archives:
-  - replacements:
-      amd64: x86_64
-    files:
+  - files:
       - resources/ncg.conf.tmpl
       - build/ci/banner.txt
       - README.md
       - LICENSE
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 
 builds:
   - id: binary
