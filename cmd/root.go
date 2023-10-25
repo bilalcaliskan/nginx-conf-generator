@@ -28,25 +28,25 @@ var (
 func init() {
 	opts = options.GetNginxConfGeneratorOptions()
 
-	rootCmd.Flags().StringVarP(&opts.KubeConfigPaths, "kubeConfigPaths", "", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
+	rootCmd.Flags().StringVarP(&opts.KubeConfigPaths, "kubeconfig-paths", "", filepath.Join(os.Getenv("HOME"), ".kube", "config"),
 		"comma separated list of kubeconfig file paths to access with the cluster")
-	rootCmd.Flags().StringVarP(&opts.WorkerNodeLabel, "workerNodeLabel", "", "worker",
+	rootCmd.Flags().StringVarP(&opts.WorkerNodeLabel, "worker-node-label", "", "worker",
 		"label to specify worker nodes")
-	rootCmd.Flags().StringVarP(&opts.CustomAnnotation, "customAnnotation", "", "nginx-conf-generator/enabled",
+	rootCmd.Flags().StringVarP(&opts.CustomAnnotation, "custom-annotation", "", "nginx-conf-generator/enabled",
 		"annotation to specify selectable services")
-	rootCmd.Flags().StringVarP(&opts.TemplateInputFile, "templateInputFile", "", "resources/ncg.conf.tmpl",
-		"path of the template input file to be able to render and print to --templateOutputFile")
-	rootCmd.Flags().StringVarP(&opts.TemplateOutputFile, "templateOutputFile", "", "/etc/nginx/conf.d/ncg.conf",
-		"path of the template output file which is a valid Nginx conf file")
-	rootCmd.Flags().IntVarP(&opts.MetricsPort, "metricsPort", "", 5000,
+	rootCmd.Flags().StringVarP(&opts.TemplateInputFile, "template-input-file", "", "resources/ncg.conf.tmpl",
+		"path of the template input file to be able to render and print to --template-output-file")
+	rootCmd.Flags().StringVarP(&opts.TemplateOutputFile, "template-output-file", "", "/etc/nginx/conf.d/ncg.conf",
+		"rendered output file path which is a valid Nginx conf file")
+	rootCmd.Flags().IntVarP(&opts.MetricsPort, "metrics-port", "", 5000,
 		"port of the metrics server")
-	rootCmd.Flags().StringVarP(&opts.BannerFilePath, "bannerFilePath", "", "build/ci/banner.txt",
-		"relative path of the banner file")
-	rootCmd.Flags().StringVarP(&opts.MetricsEndpoint, "metricsEndpoint", "", "/metrics",
+	rootCmd.Flags().StringVarP(&opts.MetricsEndpoint, "metrics-endpoint", "", "/metrics",
 		"endpoint to provide prometheus metrics")
+	rootCmd.Flags().StringVarP(&opts.BannerFilePath, "banner-file-path", "", "build/ci/banner.txt",
+		"relative path of the banner file")
 	rootCmd.Flags().BoolVarP(&opts.VerboseLog, "verbose", "v", false, "verbose output of the logging library (default false)")
 
-	if err := rootCmd.Flags().MarkHidden("bannerFilePath"); err != nil {
+	if err := rootCmd.Flags().MarkHidden("banner-file-path"); err != nil {
 		panic("fatal error occured while hiding flag")
 	}
 
