@@ -27,5 +27,5 @@ repos:
         args: [-over=30]
       - id: no-go-testing
       - id: golangci-lint
-      # - id: go-unit-tests
+      - id: go-unit-tests
       - id: go-build
