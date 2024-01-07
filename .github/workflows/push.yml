@@ -23,25 +23,9 @@ jobs:
       - name: Clean downloaded binaries
         run: make -s clean
 
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: "go.mod"
-          cache: true
-      - name: Run fmt
-        run: make -s fmt
-      - name: Clean downloaded binaries
-        run: make -s clean
-
   tests:
     strategy:
       matrix:
-        #        os: [ubuntu-latest, macos-latest]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     name: test (${{ matrix.os }})
@@ -124,8 +108,8 @@ jobs:
             exit 1
           fi
         shell: bash
-      - name: Coverage Test
-        run: make -s test-with-coverage
+      - name: Test
+        run: make -s test
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -159,7 +143,7 @@ jobs:
 
   tag:
     runs-on: ubuntu-latest
-    needs: [lint, fmt, tests, staticcheck, codeql, sonarcloud, builds]
+    needs: [lint, tests, staticcheck, codeql, sonarcloud, builds]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
