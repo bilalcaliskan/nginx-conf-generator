@@ -109,7 +109,7 @@ jobs:
           fi
         shell: bash
       - name: Coverage Test
-        run: make -s test-with-coverage
+        run: make -s test-coverage
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
