@@ -108,8 +108,8 @@ jobs:
             exit 1
           fi
         shell: bash
-      - name: Coverage Test
-        run: make -s test-coverage
+      - name: Test
+        run: make -s test
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
         env:
