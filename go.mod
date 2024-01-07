@@ -2,8 +2,6 @@ module github.com/bilalcaliskan/nginx-conf-generator
 
 go 1.21
 
-toolchain go1.21.4
-
 require (
 	github.com/dimiro1/banner v1.1.0
 	github.com/gorilla/mux v1.8.1
